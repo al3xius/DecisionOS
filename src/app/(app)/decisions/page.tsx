@@ -408,7 +408,7 @@ export default async function DecisionsPage({ searchParams }: PageProps) {
         <EmptyState
           size="lg"
           icon={<FileText className="h-8 w-8 text-blue-400" />}
-          title="Start your decision log"
+          title="Start your decision log (it only takes a few minutes)"
           description="What is the most important technical or product decision your team made in the last 30 days?"
           hint="Log it now. It takes under 3 minutes and future teammates get the context immediately."
           action={
