@@ -163,5 +163,5 @@ export async function GET(
     userAgent: ssoCtx.userAgent,
   });
 
-  return NextResponse.redirect(new URL("/decisions", req.url));
+  return NextResponse.redirect("/decisions");
 }
