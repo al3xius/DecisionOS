@@ -20,7 +20,11 @@ export default async function TeamPage() {
     prisma.workspace.findUnique({ where: { id: session.workspaceId } }),
     prisma.workspaceMembership.findMany({
       where: { workspaceId: session.workspaceId },
-      include: { user: { select: { id: true, name: true, email: true, createdAt: true } } },
+      include: {
+        user: {
+          select: { id: true, name: true, email: true, createdAt: true },
+        },
+      },
       orderBy: { joinedAt: "asc" },
     }),
   ]);
@@ -41,7 +45,10 @@ export default async function TeamPage() {
               { label: "Admins", value: admins },
               { label: "Viewers", value: viewers },
             ].map((stat) => (
-              <div key={stat.label} className="rounded-xs bg-white/80 px-4 py-3 shadow-soft backdrop-blur">
+              <div
+                key={stat.label}
+                className="rounded-xs bg-white/80 px-4 py-3 shadow-soft backdrop-blur"
+              >
                 <Text as="p" size="xs" color="muted">
                   {stat.label}
                 </Text>
@@ -58,11 +65,10 @@ export default async function TeamPage() {
         <div className="rounded-xs transition-all duration-200 lift-card animate-enter animate-enter-delay-1 overflow-hidden">
           <div className="h-1 w-full bg-[#2563eb]" />
           <div className={cn("flex flex-col space-y-1.5 p-6", "pb-4")}>
-            <Text as="h3">
-              Invite Team Member
-            </Text>
+            <Text as="h3">Invite Team Member</Text>
             <Text as="p">
-              Add teammates with the right level of access without breaking the flow of the workspace.
+              Add teammates with the right level of access without breaking the
+              flow of the workspace.
             </Text>
           </div>
           <div className="p-6 pt-0">
@@ -72,11 +78,9 @@ export default async function TeamPage() {
       )}
 
       <div className="rounded-xs transition-all duration-200 animate-enter animate-enter-delay-2 overflow-hidden">
-        <div className={cn("flex flex-col space-y-1.5 p-6", "pb-3")}>
-          <Text as="h3">
-            <Users className="h-4 w-4 text-slate-700" />
-            Members
-          </Text>
+        <div className={cn("flex flex-row gap-2 space-y-1.5 p-6", "pb-3")}>
+          <Users className="h-4 w-4 text-slate-700" />
+          <Text as="h3">Members</Text>
         </div>
         <div className={cn("p-6 pt-0", "p-0")}>
           <div className="divide-y divide-slate-100">
@@ -86,8 +90,8 @@ export default async function TeamPage() {
                 m.role === "admin"
                   ? "bg-blue-50 text-blue-700 border-blue-200"
                   : m.role === "viewer"
-                  ? "bg-amber-50 text-amber-700 border-amber-200"
-                  : "bg-emerald-50 text-emerald-700 border-emerald-200";
+                    ? "bg-amber-50 text-amber-700 border-amber-200"
+                    : "bg-emerald-50 text-emerald-700 border-emerald-200";
 
               return (
                 <div
@@ -97,20 +101,12 @@ export default async function TeamPage() {
                 >
                   <div className="flex items-center gap-4 min-w-0 flex-1">
                     <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-[#dbeafe] shadow-soft">
-                      <Text>
-                        {m.user.name.charAt(0).toUpperCase()}
-                      </Text>
+                      <Text>{m.user.name.charAt(0).toUpperCase()}</Text>
                     </div>
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <Text>
-                          {m.user.name}
-                        </Text>
-                        {isCurrentUser && (
-                          <Text>
-                            You
-                          </Text>
-                        )}
+                        <Text>{m.user.name}</Text>
+                        {isCurrentUser && <Text>You</Text>}
                       </div>
                       <Text>{m.user.email}</Text>
                     </div>
@@ -119,14 +115,24 @@ export default async function TeamPage() {
                   <div className="flex items-center justify-between gap-3 sm:justify-end">
                     <Text>Joined {formatDate(m.joinedAt)}</Text>
                     {isAdmin && !isCurrentUser ? (
-                      <MemberControls membershipId={m.id} name={m.user.name} role={m.role} />
+                      <MemberControls
+                        membershipId={m.id}
+                        name={m.user.name}
+                        role={m.role}
+                      />
                     ) : (
-                    <Badge
-                      className={roleTone}
-                      icon={m.role === "admin" ? <Shield className="h-3 w-3" /> : <User className="h-3 w-3" />}
-                    >
-                      {m.role}
-                    </Badge>
+                      <Badge
+                        className={roleTone}
+                        icon={
+                          m.role === "admin" ? (
+                            <Shield className="h-3 w-3" />
+                          ) : (
+                            <User className="h-3 w-3" />
+                          )
+                        }
+                      >
+                        {m.role}
+                      </Badge>
                     )}
                   </div>
                 </div>
