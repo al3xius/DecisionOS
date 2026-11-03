@@ -2,7 +2,7 @@
 
 import { Suspense, useActionState, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { redirect, useSearchParams } from "next/navigation";
 import { login } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,11 @@ export default function LoginPage() {
   const [state, action, pending] = useActionState(login, {});
   const [ssoOpen, setSsoOpen] = useState(false);
   const [ssoSlug, setSsoSlug] = useState("");
+
+  // redirect based on configuration
+  if (process.env.CONFIG_PRIMARY_TENANT_ONLY_SSO === "true" && process.env.CONFIG_PRIMARY_TENANT_ID) {
+    redirect(`/api/auth/sso/${encodeURIComponent(process.env.CONFIG_PRIMARY_TENANT_ID)}/start`);
+  }
 
   return (
     <div
