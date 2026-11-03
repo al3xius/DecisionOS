@@ -163,5 +163,8 @@ export async function GET(
     userAgent: ssoCtx.userAgent,
   });
 
-  return NextResponse.redirect("/decisions");
+  console.log(`SSO login: ${email} -> ${workspace.slug}`);
+  const redirectUrl = new URL("/decisions", req.url)
+  console.log(`Redirecting to: ${redirectUrl}`);
+  return NextResponse.redirect(redirectUrl);
 }
