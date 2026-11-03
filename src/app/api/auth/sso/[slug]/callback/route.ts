@@ -163,8 +163,7 @@ export async function GET(
     userAgent: ssoCtx.userAgent,
   });
 
-  console.log(`SSO login: ${email} -> ${workspace.slug}`);
-  const redirectUrl = new URL("/decisions", req.url)
-  console.log(`Redirecting to: ${redirectUrl}`);
+  // when using a reverse proxy, the request url is for the proxy, not the app, so we can't rely on it for the redirect. Use the configured app url instead.
+  const redirectUrl = new URL("/decisions", process.env.NEXT_PUBLIC_APP_URL ?? req.url);
   return NextResponse.redirect(redirectUrl);
 }
