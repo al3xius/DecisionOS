@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withApi } from "@/lib/api-handler";
-import { visibleDecision } from "@/lib/tenant";
+import { decisionVisibilityWhere } from "@/lib/tenant";
 import { SupersedeSchema, type SupersedeInput } from "@/lib/schemas";
 import { notifyDecisionWatchers } from "@/lib/notify-watchers";
 import { track } from "@/lib/analytics";
@@ -20,14 +20,8 @@ export const POST = withApi<SupersedeInput, { id: string }>(
     if (toDecisionId === id)
       return NextResponse.json({ error: "A decision cannot supersede itself." }, { status: 400 });
 
-    const oldDecision = visibleDecision(
-      await prisma.decision.findUnique({ where: { id }, select: { id: true, workspaceId: true, status: true, visibility: true, createdByUserId: true } }),
-      session,
-    );
-    const newDecision = visibleDecision(
-      await prisma.decision.findUnique({ where: { id: toDecisionId }, select: { id: true, workspaceId: true, visibility: true, createdByUserId: true } }),
-      session,
-    );
+    const oldDecision = await prisma.decision.findFirst({ where: { id, ...decisionVisibilityWhere(session) }, select: { id: true, workspaceId: true, status: true, visibility: true, createdByUserId: true } });
+    const newDecision = await prisma.decision.findFirst({ where: { id: toDecisionId, ...decisionVisibilityWhere(session) }, select: { id: true, workspaceId: true, visibility: true, createdByUserId: true } });
     if (!oldDecision)
       return NextResponse.json({ error: "Decision not found." }, { status: 404 });
     if (!newDecision)

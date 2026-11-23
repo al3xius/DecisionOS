@@ -2,17 +2,17 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { notifyDecisionWatchers } from "@/lib/notify-watchers";
 import { withApi } from "@/lib/api-handler";
-import { visibleDecision } from "@/lib/tenant";
+import { decisionVisibilityWhere } from "@/lib/tenant";
 import { NoteReplyWriteSchema, ReplyDeleteSchema, type NoteReplyWriteInput, type ReplyDeleteInput } from "@/lib/schemas";
 
 export const POST = withApi<NoteReplyWriteInput>(
   { require: "writer", schema: NoteReplyWriteSchema },
   async ({ session, body }) => {
-    const note = await prisma.decisionNote.findUnique({
-      where: { id: body.noteId },
-      include: { decision: { select: { id: true, workspaceId: true, visibility: true, createdByUserId: true } } },
+    const note = await prisma.decisionNote.findFirst({
+      where: { id: body.noteId, decision: decisionVisibilityWhere(session) },
+      include: { decision: { select: { id: true } } },
     });
-    if (!note || !visibleDecision(note.decision, session))
+    if (!note)
       return NextResponse.json({ error: "Note not found." }, { status: 404 });
 
     await prisma.$transaction([

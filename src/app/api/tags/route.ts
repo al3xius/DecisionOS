@@ -37,6 +37,18 @@ export const DELETE = withApi<TagDeleteInput>(
     );
     if (!tag) return NextResponse.json({ error: "Tag not found." }, { status: 404 });
 
+    // Deleting a tag that restricts decisions' audience would cascade away the
+    // restriction and silently open those decisions to the whole workspace.
+    const restricted = await prisma.decisionAudienceTag.count({ where: { tagId: tag.id } });
+    if (restricted > 0) {
+      return NextResponse.json(
+        {
+          error: `This tag restricts who can see ${restricted} decision${restricted === 1 ? "" : "s"}. Remove it from their "Visible to" first.`,
+        },
+        { status: 409 },
+      );
+    }
+
     await prisma.tag.delete({ where: { id: tag.id } });
     return NextResponse.json({ success: true });
   },

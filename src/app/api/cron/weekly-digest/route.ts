@@ -13,6 +13,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { decisionVisibilityWhere } from "@/lib/tenant";
 import { sendMail, getBaseUrl } from "@/lib/email";
 import { computeDecisionHealth } from "@/lib/decision-health";
 import { isAuthorizedCron } from "@/lib/env";
@@ -251,9 +252,10 @@ export async function GET(req: NextRequest) {
     }));
 
     const signals = {
+      // Not truncated here: each recipient sees only the ones visible to them
+      // (see below), so the per-user slice happens after that filter.
       needsRetro: tagged
         .filter((t) => t.health === "superseded-unreviewed")
-        .slice(0, 5)
         .map(({ id, title }) => ({ id, title })),
       staleCount: tagged.filter((t) => t.health === "stale").length,
     };
@@ -263,8 +265,11 @@ export async function GET(req: NextRequest) {
 
   for (const membership of memberships) {
     const { user, workspace } = membership;
+    // Everything listed by title must be visible to this recipient (private and
+    // audience-restricted decisions are filtered per user).
+    const visibleToUser = decisionVisibilityWhere({ userId: user.id, workspaceId: workspace.id });
 
-    const [overdueCount, recentDecisions, upcomingReviews, workspaceSignals] = await Promise.all([
+    const [overdueCount, recentDecisions, upcomingReviews, allSignals] = await Promise.all([
       // Overdue decisions the user owns or created
       prisma.decision.count({
         where: {
@@ -281,7 +286,7 @@ export async function GET(req: NextRequest) {
       // Recent team decisions (last 7 days)
       prisma.decision.findMany({
         where: {
-          workspaceId: workspace.id,
+          ...visibleToUser,
           updatedAt: { gte: sevenDaysAgo },
           status: { notIn: ["archived"] },
         },
@@ -307,6 +312,22 @@ export async function GET(req: NextRequest) {
       }),
       getWorkspaceSignals(workspace.id),
     ]);
+
+    const retroIds = allSignals.needsRetro.map((d) => d.id);
+    const visibleRetroIds = retroIds.length
+      ? new Set(
+          (
+            await prisma.decision.findMany({
+              where: { id: { in: retroIds }, ...visibleToUser },
+              select: { id: true },
+            })
+          ).map((d) => d.id),
+        )
+      : new Set<string>();
+    const workspaceSignals = {
+      ...allSignals,
+      needsRetro: allSignals.needsRetro.filter((d) => visibleRetroIds.has(d.id)).slice(0, 5),
+    };
 
     // Skip if nothing to report
     if (

@@ -37,13 +37,17 @@ export const apiFoundationTests = {
     assert(workspaceWhere(SESSION).workspaceId === "w_1", "workspaceId set");
   },
 
-  "decisionVisibilityWhere: workspace + (workspace-visible OR own private)": () => {
+  "decisionVisibilityWhere: workspace + (own OR unrestricted OR holds an audience tag)": () => {
     const w = decisionVisibilityWhere(SESSION);
     assert(w.workspaceId === "w_1", "workspace scoped");
-    assert(Array.isArray(w.OR) && w.OR.length === 2, "two visibility branches");
-    const json = JSON.stringify(w.OR);
-    assert(json.includes("workspace"), "includes workspace-visible branch");
-    assert(json.includes("u_1"), "includes own-private (createdByUserId) branch");
+    assert(Array.isArray(w.OR) && w.OR.length === 3, "three visibility branches");
+    const [own, open, tagged] = w.OR as Record<string, unknown>[];
+    assert(own.createdByUserId === "u_1", "author always sees their decision");
+    assert(open.visibility === "workspace", "open branch requires workspace visibility");
+    assert(JSON.stringify(open.audienceTags) === JSON.stringify({ none: {} }), "open branch requires no audience tags");
+    assert(tagged.visibility === "workspace", "tag branch requires workspace visibility");
+    const json = JSON.stringify(tagged.audienceTags);
+    assert(json.includes('"userId":"u_1"') && json.includes('"workspaceId":"w_1"'), "tag branch matches the caller's membership tags");
   },
 
   "sameWorkspace: returns the row only on a workspace match": () => {

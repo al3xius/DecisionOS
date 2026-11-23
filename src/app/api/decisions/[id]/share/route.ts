@@ -13,6 +13,7 @@ async function findVisibleDecision(id: string, session: Parameters<typeof decisi
       id: true,
       visibility: true,
       shareToken: true,
+      _count: { select: { audienceTags: true } },
       workspace: { select: { publicSharing: true } },
     },
   });
@@ -21,7 +22,7 @@ async function findVisibleDecision(id: string, session: Parameters<typeof decisi
 /**
  * POST /api/decisions/[id]/share
  * Create (or return the existing) public read-only link for a decision.
- * Refused for private decisions and when the workspace has public links off.
+ * Refused for private or audience-restricted decisions and when the workspace has public links off.
  */
 export const POST = withApi<undefined, Params>({ require: "writer" }, async ({ session, params }) => {
   const decision = await findVisibleDecision(params.id, session);
@@ -34,6 +35,12 @@ export const POST = withApi<undefined, Params>({ require: "writer" }, async ({ s
   }
   if (decision.visibility !== "workspace") {
     return NextResponse.json({ error: "Private decisions can't be shared publicly." }, { status: 400 });
+  }
+  if (decision._count.audienceTags > 0) {
+    return NextResponse.json(
+      { error: "Decisions restricted to specific tags can't be shared publicly." },
+      { status: 400 },
+    );
   }
 
   let token = decision.shareToken;

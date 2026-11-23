@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withApi } from "@/lib/api-handler";
-import { visibleDecision } from "@/lib/tenant";
+import { actionItemVisibilityWhere, decisionVisibilityWhere } from "@/lib/tenant";
 import { ActionItemPatchSchema, type ActionItemPatchInput } from "@/lib/schemas";
 
 const itemInclude = {
@@ -13,8 +13,11 @@ const itemInclude = {
 export const PATCH = withApi<ActionItemPatchInput, { id: string }>(
   { require: "writer", schema: ActionItemPatchSchema },
   async ({ session, params, body }) => {
-    const existing = await prisma.actionItem.findUnique({ where: { id: params.id } });
-    if (!existing || existing.workspaceId !== session.workspaceId)
+    // Items on a decision the caller can't see are as invisible as the decision.
+    const existing = await prisma.actionItem.findFirst({
+      where: { id: params.id, ...actionItemVisibilityWhere(session) },
+    });
+    if (!existing)
       return NextResponse.json({ error: "Action item not found." }, { status: 404 });
 
     const { title, description, status, priority, assigneeId, dueDate, decisionId } = body;
@@ -23,11 +26,11 @@ export const PATCH = withApi<ActionItemPatchInput, { id: string }>(
     // workspace - otherwise a writer could attach an item to a foreign tenant's
     // decision (POST already enforces this; PATCH previously did not).
     if (decisionId) {
-      const target = await prisma.decision.findUnique({
-        where: { id: decisionId },
-        select: { workspaceId: true, visibility: true, createdByUserId: true },
+      const target = await prisma.decision.findFirst({
+        where: { id: decisionId, ...decisionVisibilityWhere(session) },
+        select: { id: true },
       });
-      if (!visibleDecision(target, session)) {
+      if (!target) {
         return NextResponse.json({ error: "Decision not found." }, { status: 404 });
       }
     }

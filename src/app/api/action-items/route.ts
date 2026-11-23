@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withApi } from "@/lib/api-handler";
-import { actionItemVisibilityWhere, visibleDecision } from "@/lib/tenant";
+import { actionItemVisibilityWhere, decisionVisibilityWhere } from "@/lib/tenant";
 import { ActionItemWriteSchema, type ActionItemWriteInput } from "@/lib/schemas";
 import { logger } from "@/lib/logger";
 
@@ -41,11 +41,11 @@ export const POST = withApi<ActionItemWriteInput>(
   async ({ session, body }) => {
     // Verify decision belongs to workspace if provided
     if (body.decisionId) {
-      const dec = await prisma.decision.findUnique({
-        where: { id: body.decisionId },
-        select: { workspaceId: true, visibility: true, createdByUserId: true },
+      const dec = await prisma.decision.findFirst({
+        where: { id: body.decisionId, ...decisionVisibilityWhere(session) },
+        select: { id: true },
       });
-      if (!visibleDecision(dec, session))
+      if (!dec)
         return NextResponse.json({ error: "Decision not found." }, { status: 404 });
     }
 

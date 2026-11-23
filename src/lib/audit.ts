@@ -29,6 +29,7 @@ export const AUDIT_ACTIONS = {
   "member.invited": "Added a member to the workspace",
   "member.removed": "Removed a member from the workspace",
   "member.role_changed": "Changed a member's role",
+  "member.tags_changed": "Changed a member's tags",
   // Workspace lifecycle & configuration
   "workspace.updated": "Updated workspace settings",
   "workspace.deleted": "Deleted the workspace and all of its data",

@@ -1,5 +1,6 @@
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { decisionVisibilityWhere } from "@/lib/tenant";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { PageContainer } from "@/components/layout/page-container";
@@ -30,7 +31,7 @@ export default async function ActivityPage({
   const user = sp.user || undefined;
 
   const where = {
-    decision: { workspaceId: session.workspaceId },
+    decision: decisionVisibilityWhere(session),
     ...(type ? { eventType: type } : {}),
     ...(user ? { userId: user } : {}),
   };

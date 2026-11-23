@@ -17,6 +17,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { canSeeDecision } from "@/lib/decision-audience";
 import { signReviewToken } from "@/lib/review-token";
 import { sendMail, getBaseUrl } from "@/lib/email";
 import { decrypt } from "@/lib/crypto";
@@ -154,6 +155,8 @@ export async function GET(req: NextRequest) {
       workspaceId: true,
       ownerUserId: true,
       createdByUserId: true,
+      visibility: true,
+      audienceTags: { select: { tagId: true } },
       owner: { select: { id: true, name: true, email: true } },
       createdBy: { select: { id: true, name: true, email: true } },
     },
@@ -169,8 +172,27 @@ export async function GET(req: NextRequest) {
     decisions: typeof overdueDecisions;
   }>();
 
+  // An owner who can't see the decision (private, or lacking its audience tags)
+  // must not be emailed its title - the reminder falls back to the author.
+  const ownerMemberships = await prisma.workspaceMembership.findMany({
+    where: { userId: { in: [...new Set(overdueDecisions.flatMap((d) => (d.ownerUserId ? [d.ownerUserId] : [])))] } },
+    select: { userId: true, workspaceId: true, tags: { select: { tagId: true } } },
+  });
+  const ownerTags = new Map(
+    ownerMemberships.map((m) => [`${m.userId}:${m.workspaceId}`, m.tags.map((t) => t.tagId)]),
+  );
+  const ownerCanSee = (d: (typeof overdueDecisions)[number]) => {
+    if (!d.owner) return false;
+    const tagIds = ownerTags.get(`${d.owner.id}:${d.workspaceId}`);
+    if (!tagIds) return false; // no longer a member of the workspace
+    return canSeeDecision(
+      { visibility: d.visibility, createdByUserId: d.createdByUserId, audienceTagIds: d.audienceTags.map((t) => t.tagId) },
+      { userId: d.owner.id, tagIds },
+    );
+  };
+
   for (const d of overdueDecisions) {
-    const user = (d.owner ?? d.createdBy)!;
+    const user = ownerCanSee(d) ? d.owner! : d.createdBy;
     const existing = byUser.get(user.id);
     if (existing) {
       existing.decisions.push(d);

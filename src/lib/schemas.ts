@@ -69,6 +69,9 @@ export const DecisionWriteSchema = z.object({
   ownerUserId: z.string().nullable().optional(),
   accountableUserId: z.string().nullable().optional(),
   consultedIds: z.array(z.string()).max(100).nullable().optional(),
+  // "Visible to" tags. Empty = everyone in the workspace (subject to
+  // `visibility`); non-empty = only the author and members holding one of them.
+  audienceTagIds: z.array(z.string().min(1)).max(50).optional(),
 
   problemStatement: longText(),
   chosenOption: longText(),
@@ -260,6 +263,12 @@ export const TeamRoleSchema = z.object({
   role: z.enum(["admin", "member", "viewer"], { error: "Role must be admin, member, or viewer" }),
 });
 export type TeamRoleInput = z.infer<typeof TeamRoleSchema>;
+
+/** Replace the full set of tags held by a member (drives decision visibility). */
+export const MemberTagsSchema = z.object({
+  tagIds: z.array(z.string().min(1)).max(100),
+});
+export type MemberTagsInput = z.infer<typeof MemberTagsSchema>;
 
 // ── Platform (provider) console ──────────────────────────────────────────────
 

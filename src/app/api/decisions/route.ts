@@ -4,6 +4,7 @@ import { track } from "@/lib/analytics";
 import { DecisionWriteSchema, type DecisionWriteInput } from "@/lib/schemas";
 import { withApi } from "@/lib/api-handler";
 import { decisionMutationLimiter, mutationKey } from "@/lib/rate-limit";
+import { resolveAudienceTagIds } from "@/lib/decision-audience";
 
 export const POST = withApi<DecisionWriteInput>(
   { require: "writer", schema: DecisionWriteSchema },
@@ -23,6 +24,9 @@ export const POST = withApi<DecisionWriteInput>(
       Array.isArray(data.consultedIds) && data.consultedIds.length > 0
         ? JSON.stringify(data.consultedIds)
         : null;
+
+    const audience = await resolveAudienceTagIds(session.workspaceId, data.audienceTagIds ?? []);
+    if (!audience.ok) return NextResponse.json({ error: audience.error }, { status: 400 });
 
     const decision = await prisma.decision.create({
       data: {
@@ -46,6 +50,7 @@ export const POST = withApi<DecisionWriteInput>(
         capturedVia: "web",
         accountableUserId: data.accountableUserId ?? null,
         consultedIds,
+        audienceTags: { create: audience.tagIds.map((tagId) => ({ tagId })) },
       },
     });
 

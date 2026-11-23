@@ -80,7 +80,7 @@ export function SharePanel({
   }
 
   const blockedReason = isPrivate
-    ? "This decision is private, so it can't have a public link."
+    ? "This decision is private or restricted to specific tags, so it can't have a public link."
     : !sharingEnabled
     ? "An admin has turned public links off for this workspace."
     : null;

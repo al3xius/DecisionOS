@@ -18,14 +18,17 @@ export default async function TagsPage() {
   const tags = await prisma.tag.findMany({
     where: { workspaceId: session.workspaceId },
     orderBy: { name: "asc" },
-    include: { _count: { select: { decisions: true } } },
+    include: { _count: { select: { decisions: true, members: true, audienceDecisions: true } } },
   });
 
   const isAdmin = session.role === "admin";
 
   return (
     <PageContainer>
-      <PageHeader title="Tags" description="Organize decisions with tags across your workspace." />
+      <PageHeader
+        title="Tags"
+        description="Organize decisions with tags, and assign tags to members on the Team page to control who can see restricted decisions."
+      />
 
       {isAdmin && (
         <div className="rounded-xs transition-all duration-200">
@@ -73,6 +76,10 @@ export default async function TagsPage() {
                     </Text>
                     <Text>
                       {tag._count.decisions} decision{tag._count.decisions !== 1 ? "s" : ""}
+                      {" · "}
+                      {tag._count.members} member{tag._count.members !== 1 ? "s" : ""}
+                      {tag._count.audienceDecisions > 0 &&
+                        ` · restricts ${tag._count.audienceDecisions} decision${tag._count.audienceDecisions !== 1 ? "s" : ""}`}
                     </Text>
                   </div>
                   {isAdmin && <DeleteTagButton tagId={tag.id} />}

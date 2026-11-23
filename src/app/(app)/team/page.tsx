@@ -6,6 +6,7 @@ import { Text } from "@/components/ui/text";
 import { cn, formatDate } from "@/lib/utils";
 import { InviteMemberForm } from "./invite-member-form";
 import { MemberControls } from "./member-controls";
+import { MemberTags } from "./member-tags";
 import { Shield, User, Users } from "lucide-react";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
@@ -16,12 +17,23 @@ export default async function TeamPage() {
   const session = await getSession();
   if (!session) redirect("/login");
 
-  const [workspace, memberships] = await Promise.all([
+  const [workspace, memberships, tags] = await Promise.all([
     prisma.workspace.findUnique({ where: { id: session.workspaceId } }),
     prisma.workspaceMembership.findMany({
       where: { workspaceId: session.workspaceId },
-      include: { user: { select: { id: true, name: true, email: true, createdAt: true } } },
+      include: {
+        user: { select: { id: true, name: true, email: true, createdAt: true } },
+        tags: {
+          select: { tag: { select: { id: true, name: true, color: true } } },
+          orderBy: { tag: { name: "asc" } },
+        },
+      },
       orderBy: { joinedAt: "asc" },
+    }),
+    prisma.tag.findMany({
+      where: { workspaceId: session.workspaceId },
+      select: { id: true, name: true, color: true },
+      orderBy: { name: "asc" },
     }),
   ]);
 
@@ -113,6 +125,15 @@ export default async function TeamPage() {
                         )}
                       </div>
                       <Text>{m.user.email}</Text>
+                      <div className="mt-1.5">
+                        <MemberTags
+                          membershipId={m.id}
+                          name={m.user.name}
+                          applied={m.tags.map((t) => t.tag)}
+                          available={tags}
+                          readOnly={!isAdmin}
+                        />
+                      </div>
                     </div>
                   </div>
 

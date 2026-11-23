@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withApi } from "@/lib/api-handler";
-import { sameWorkspace, visibleDecision } from "@/lib/tenant";
+import { decisionVisibilityWhere, sameWorkspace } from "@/lib/tenant";
 import { DecisionTagSchema, type DecisionTagInput } from "@/lib/schemas";
 
 export const POST = withApi<DecisionTagInput>(
@@ -9,10 +9,10 @@ export const POST = withApi<DecisionTagInput>(
   async ({ session, body }) => {
     const { decisionId, tagId } = body;
     const [decision, tag] = await Promise.all([
-      prisma.decision.findUnique({ where: { id: decisionId } }),
+      prisma.decision.findFirst({ where: { id: decisionId, ...decisionVisibilityWhere(session) } }),
       prisma.tag.findUnique({ where: { id: tagId } }),
     ]);
-    if (!visibleDecision(decision, session))
+    if (!decision)
       return NextResponse.json({ error: "Decision not found." }, { status: 404 });
     if (!sameWorkspace(tag, session))
       return NextResponse.json({ error: "Tag not found." }, { status: 404 });
@@ -31,10 +31,7 @@ export const DELETE = withApi<DecisionTagInput>(
   { require: "writer", schema: DecisionTagSchema },
   async ({ session, body }) => {
     const { decisionId, tagId } = body;
-    const decision = visibleDecision(
-      await prisma.decision.findUnique({ where: { id: decisionId } }),
-      session,
-    );
+    const decision = await prisma.decision.findFirst({ where: { id: decisionId, ...decisionVisibilityWhere(session) } });
     if (!decision) return NextResponse.json({ error: "Decision not found." }, { status: 404 });
 
     await prisma.decisionTag.deleteMany({ where: { decisionId, tagId } });

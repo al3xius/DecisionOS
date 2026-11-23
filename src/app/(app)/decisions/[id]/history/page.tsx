@@ -1,5 +1,6 @@
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { decisionVisibilityWhere } from "@/lib/tenant";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -59,14 +60,11 @@ export default async function DecisionHistoryPage({ params }: PageProps) {
   const session = await getSession();
   if (!session) redirect("/login");
 
-  const decision = await prisma.decision.findUnique({
-    where: { id },
+  const decision = await prisma.decision.findFirst({
+    where: { id, ...decisionVisibilityWhere(session) },
     select: {
       id: true,
       title: true,
-      workspaceId: true,
-      visibility: true,
-      createdByUserId: true,
       versions: {
         include: { changedBy: { select: { id: true, name: true } } },
         orderBy: { versionNum: "desc" },
@@ -74,13 +72,7 @@ export default async function DecisionHistoryPage({ params }: PageProps) {
     },
   });
 
-  if (
-    !decision ||
-    decision.workspaceId !== session.workspaceId ||
-    (decision.visibility !== "workspace" && decision.createdByUserId !== session.userId)
-  ) {
-    notFound();
-  }
+  if (!decision) notFound();
 
   return (
     <PageContainer>
