@@ -5,6 +5,7 @@ import { withApi } from "@/lib/api-handler";
 import { decisionVisibilityWhere } from "@/lib/tenant";
 import { notifyDecisionWatchers } from "@/lib/notify-watchers";
 import { resolveAudienceTagIds } from "@/lib/decision-audience";
+import { audienceEventJson } from "@/lib/activity-events";
 
 export const PUT = withApi<DecisionPatchInput, { id: string }>(
   { require: "writer", schema: DecisionPatchSchema },
@@ -13,7 +14,7 @@ export const PUT = withApi<DecisionPatchInput, { id: string }>(
 
     const existing = await prisma.decision.findFirst({
       where: { id, ...decisionVisibilityWhere(session) },
-      include: { audienceTags: { select: { tagId: true } } },
+      include: { audienceTags: { select: { tagId: true, tag: { select: { name: true } } } } },
     });
     if (!existing) return NextResponse.json({ error: "Decision not found." }, { status: 404 });
 
@@ -94,15 +95,13 @@ export const PUT = withApi<DecisionPatchInput, { id: string }>(
     // frequent inline saves.
     const { audienceTags: existingAudience, ...existingRecord } = existing as typeof existing &
       Record<string, unknown>;
-    const changed =
-      nextAudience !== null ||
-      Object.keys(data).some((k) => {
-        const a = data[k], b = existingRecord[k];
-        if (a instanceof Date || b instanceof Date)
-          return new Date(a as string).getTime() !== new Date(b as string).getTime();
-        return a !== b;
-      });
-    if (!changed) return NextResponse.json({ success: true });
+    const fieldsChanged = Object.keys(data).some((k) => {
+      const a = data[k], b = existingRecord[k];
+      if (a instanceof Date || b instanceof Date)
+        return new Date(a as string).getTime() !== new Date(b as string).getTime();
+      return a !== b;
+    });
+    if (!fieldsChanged && nextAudience === null) return NextResponse.json({ success: true });
 
     const oldStatus = existing.status;
 
@@ -120,6 +119,16 @@ export const PUT = withApi<DecisionPatchInput, { id: string }>(
             data: nextAudience.map((tagId) => ({ decisionId: id, tagId })),
           });
         }
+        const nextTags = await tx.tag.findMany({ where: { id: { in: nextAudience } }, select: { name: true } });
+        await tx.decisionEvent.create({
+          data: {
+            decisionId: id,
+            userId: session.userId,
+            eventType: "audience_changed",
+            oldValueJson: audienceEventJson(existingAudience.map((t) => t.tag)),
+            newValueJson: audienceEventJson(nextTags),
+          },
+        });
       }
 
       await tx.decisionVersion.create({
@@ -134,7 +143,8 @@ export const PUT = withApi<DecisionPatchInput, { id: string }>(
         },
       });
 
-      await tx.decisionEvent.create({
+      // An audience-only change already has its own "audience_changed" event.
+      if (fieldsChanged) await tx.decisionEvent.create({
         data: {
           decisionId: id,
           userId: session.userId,

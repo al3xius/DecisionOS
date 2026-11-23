@@ -37,6 +37,7 @@ import { PUT as memberTagsPUT } from "@/app/api/team/[id]/tags/route";
 import { DELETE as tagsDELETE, PATCH as tagsPATCH, POST as tagsPOST } from "@/app/api/tags/route";
 import { usersWhoCanSeeDecision } from "@/lib/decision-audience";
 import RisksPage from "@/app/(app)/risks/page";
+import { POST as decisionTagPOST, DELETE as decisionTagDELETE } from "@/app/api/decisions/tags/route";
 import { __resetAccessCache } from "@/lib/access-control";
 
 const MARK = `aud${Date.now()}`;
@@ -334,5 +335,49 @@ describe("tag colors", () => {
     expect((await tagsPATCH(req("PATCH", { tagId: ctx.tagFinance, color: "#000000" }))).status).toBe(403);
     sessionFor(ctx.admin, "admin");
     expect((await tagsPATCH(req("PATCH", { tagId: ctx.tagOther, color: "#000000" }))).status).toBe(404);
+  });
+});
+
+describe("activity log for tag changes", () => {
+  const events = (decisionId: string, eventType: string) =>
+    prisma.decisionEvent.findMany({
+      where: { decisionId, eventType },
+      select: { userId: true, newValueJson: true, oldValueJson: true },
+      orderBy: { createdAt: "asc" },
+    });
+
+  it("logs who added and who removed a tag, once per real change", async () => {
+    sessionFor(ctx.finance);
+    const body = { decisionId: ctx.restricted, tagId: ctx.tagLegal };
+    expect((await decisionTagPOST(req("POST", body))).status).toBe(200);
+    expect((await decisionTagPOST(req("POST", body))).status).toBe(200); // already applied - no new event
+
+    sessionFor(ctx.author);
+    expect((await decisionTagDELETE(req("DELETE", body))).status).toBe(200);
+    expect((await decisionTagDELETE(req("DELETE", body))).status).toBe(200); // already gone - no new event
+
+    const added = await events(ctx.restricted, "tag_added");
+    const removed = await events(ctx.restricted, "tag_removed");
+    expect(added).toHaveLength(1);
+    expect(removed).toHaveLength(1);
+    expect(added[0].userId).toBe(ctx.finance);
+    expect(removed[0].userId).toBe(ctx.author);
+    expect(JSON.parse(added[0].newValueJson!)).toMatchObject({ tagId: ctx.tagLegal, tagName: "legal" });
+  });
+
+  it("logs audience changes with before/after tag names and no generic 'updated' event", async () => {
+    const d = await prisma.decision.create({
+      data: { workspaceId: ctx.ws, createdByUserId: ctx.author, title: `${MARK} audience log`, status: "approved" },
+    });
+    sessionFor(ctx.author);
+    const res = await decisionsPUT(req("PUT", { audienceTagIds: [ctx.tagFinance] }), seg({ id: d.id }));
+    expect(res.status).toBe(200);
+
+    const changed = await events(d.id, "audience_changed");
+    expect(changed).toHaveLength(1);
+    expect(changed[0].userId).toBe(ctx.author);
+    expect(JSON.parse(changed[0].oldValueJson!)).toEqual({ tagNames: [] });
+    expect(JSON.parse(changed[0].newValueJson!)).toEqual({ tagNames: ["finance"] });
+    expect(await events(d.id, "updated")).toHaveLength(0);
   });
 });

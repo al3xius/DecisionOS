@@ -1,6 +1,7 @@
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { decisionVisibilityWhere } from "@/lib/tenant";
+import { activityEventDetail } from "@/lib/activity-events";
 import { shareUrl } from "@/lib/share-link";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
@@ -112,6 +113,9 @@ const EVENT_LABELS: Record<string, string> = {
   link_added: "added a link",
   share_enabled: "created a public link",
   share_revoked: "revoked the public link",
+  tag_added: "added the tag",
+  tag_removed: "removed the tag",
+  audience_changed: "changed who can see this:",
 };
 
 /** Tab title is the decision's own title - only for decisions the viewer may see. */
@@ -719,25 +723,19 @@ export default async function DecisionDetailPage({ params }: PageProps) {
               ) : (
                 <div className="space-y-3">
                   {decision.events.map((event) => {
-                    let detail = "";
-                    if (event.eventType === "status_changed" && event.newValueJson) {
-                      try {
-                        const val = JSON.parse(event.newValueJson);
-                        detail = `→ ${val.status}`;
-                      } catch { /* empty */ }
-                    }
+                    const detail = activityEventDetail(event.eventType, event.newValueJson, event.oldValueJson);
                     return (
                       <div key={event.id} className="flex gap-2">
                         <Avatar>
                           <AvatarFallback>{event.user.name.charAt(0).toUpperCase()}</AvatarFallback>
                         </Avatar>
                         <div>
-                          <Text>{event.user.name} </Text>
-                          <Text>
+                          <Text as="p" color="secondary">
+                            <Text as="span" weight="medium" color="primary">{event.user.name}</Text>{" "}
                             {EVENT_LABELS[event.eventType] ?? event.eventType}
+                            {detail && <Text as="span" weight="medium" color="primary">{` ${detail}`}</Text>}
                           </Text>
-                          {detail && <Text> {detail}</Text>}
-                          <Text as="p">{formatRelativeDate(event.createdAt)}</Text>
+                          <Text as="p" size="xs" color="subtle">{formatRelativeDate(event.createdAt)}</Text>
                         </div>
                       </div>
                     );

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { withApi } from "@/lib/api-handler";
 import { decisionVisibilityWhere, sameWorkspace } from "@/lib/tenant";
 import { DecisionTagSchema, type DecisionTagInput } from "@/lib/schemas";
+import { tagEventJson } from "@/lib/activity-events";
 
 export const POST = withApi<DecisionTagInput>(
   { require: "writer", schema: DecisionTagSchema },
@@ -17,11 +18,19 @@ export const POST = withApi<DecisionTagInput>(
     if (!sameWorkspace(tag, session))
       return NextResponse.json({ error: "Tag not found." }, { status: 404 });
 
-    await prisma.decisionTag.upsert({
+    // Only a real change is logged: re-adding an applied tag is a no-op.
+    const existing = await prisma.decisionTag.findUnique({
       where: { decisionId_tagId: { decisionId, tagId } },
-      create: { decisionId, tagId },
-      update: {},
+      select: { id: true },
     });
+    if (existing) return NextResponse.json({ success: true });
+
+    await prisma.$transaction([
+      prisma.decisionTag.create({ data: { decisionId, tagId } }),
+      prisma.decisionEvent.create({
+        data: { decisionId, userId: session.userId, eventType: "tag_added", newValueJson: tagEventJson(tag!) },
+      }),
+    ]);
 
     return NextResponse.json({ success: true });
   },
@@ -34,7 +43,23 @@ export const DELETE = withApi<DecisionTagInput>(
     const decision = await prisma.decision.findFirst({ where: { id: decisionId, ...decisionVisibilityWhere(session) } });
     if (!decision) return NextResponse.json({ error: "Decision not found." }, { status: 404 });
 
-    await prisma.decisionTag.deleteMany({ where: { decisionId, tagId } });
+    const applied = await prisma.decisionTag.findUnique({
+      where: { decisionId_tagId: { decisionId, tagId } },
+      select: { tag: { select: { id: true, name: true } } },
+    });
+    if (!applied) return NextResponse.json({ success: true });
+
+    await prisma.$transaction([
+      prisma.decisionTag.deleteMany({ where: { decisionId, tagId } }),
+      prisma.decisionEvent.create({
+        data: {
+          decisionId,
+          userId: session.userId,
+          eventType: "tag_removed",
+          newValueJson: tagEventJson(applied.tag),
+        },
+      }),
+    ]);
     return NextResponse.json({ success: true });
   },
 );

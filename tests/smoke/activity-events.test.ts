@@ -1,5 +1,11 @@
 import { assertEqual } from "./run";
-import { activityEventVerb, activityEventLabel } from "../../src/lib/activity-events";
+import {
+  activityEventVerb,
+  activityEventLabel,
+  activityEventDetail,
+  tagEventJson,
+  audienceEventJson,
+} from "../../src/lib/activity-events";
 
 /**
  * Human-readable labels for the activity feed. Pure lookup + fallback logic;
@@ -22,5 +28,28 @@ export const activityEventsTests = {
     assertEqual(activityEventLabel("created"), "Created");
     assertEqual(activityEventLabel("status_changed"), "Changed the status of");
     assertEqual(activityEventLabel("some_new_event"), "Some new event");
+  },
+
+  "tag events show the tag name stored on the event"() {
+    const json = tagEventJson({ id: "t1", name: "finance" });
+    assertEqual(activityEventVerb("tag_added"), "added a tag to");
+    assertEqual(activityEventVerb("tag_removed"), "removed a tag from");
+    assertEqual(activityEventDetail("tag_added", json), '"finance"');
+    assertEqual(activityEventDetail("tag_removed", json), '"finance"');
+  },
+
+  "audience changes show before → after, with empty meaning everyone"() {
+    const before = audienceEventJson([]);
+    const after = audienceEventJson([{ name: "legal" }, { name: "finance" }]);
+    assertEqual(
+      activityEventDetail("audience_changed", after, before),
+      'everyone in the workspace → "finance", "legal"',
+    );
+  },
+
+  "detail is null for events without one, and tolerates bad JSON"() {
+    assertEqual(activityEventDetail("note_added", null), null);
+    assertEqual(activityEventDetail("tag_added", "not json"), null);
+    assertEqual(activityEventDetail("status_changed", JSON.stringify({ status: "approved" })), "→ approved");
   },
 };
