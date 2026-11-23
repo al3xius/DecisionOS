@@ -63,10 +63,15 @@ export default async function RisksPage({ searchParams }: PageProps) {
 
   const decisions = await prisma.decision.findMany({
     where: {
-      ...decisionVisibilityWhere(session),
+      // Visibility and the "has risks" filter are both ORs - they must be ANDed,
+      // not spread side by side (the second OR key would silently replace the
+      // visibility rule and leak hidden decisions' risks).
+      AND: [
+        decisionVisibilityWhere(session),
+        { OR: [{ risks: { not: null } }, { assumptions: { not: null } }] },
+      ],
       // Retired decisions carry historical risks that are no longer live.
       status: { notIn: ["archived", "superseded"] },
-      OR: [{ risks: { not: null } }, { assumptions: { not: null } }],
     },
     select: {
       id: true,

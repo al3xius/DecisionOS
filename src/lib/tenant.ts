@@ -55,7 +55,11 @@ export function decisionAccessWhere(session: TenantSession) {
 
 /**
  * Workspace filter that also respects per-decision visibility (private and
- * audience tags - see `decisionAccessWhere`). Use for any decision read that a
+ * audience tags - see `decisionAccessWhere`).
+ *
+ * The result has a top-level `OR`. Never spread it next to another `OR` key -
+ * the later one wins and the visibility rule silently disappears. Combine with
+ * other OR/AND filters via `{ AND: [decisionVisibilityWhere(s), other] }`. Use for any decision read that a
  * member could trigger (list, search, ask, share-within-app), and - with an
  * `id` added - for every by-id lookup before reading or writing anything that
  * belongs to a decision:

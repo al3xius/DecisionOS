@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
   // plus the caller's own private decisions). The query filters are ANDed on top
   // so search can't surface another member's private decision.
   const visibility = decisionVisibilityWhere(session);
-  const where = { ...visibility, ...queryWhere };
+  const where = { AND: [visibility, queryWhere] };
 
   const needsHealth = healthFilter.include.length > 0 || healthFilter.exclude.length > 0;
 

@@ -36,6 +36,7 @@ import { POST as bulkPOST } from "@/app/api/decisions/bulk/route";
 import { PUT as memberTagsPUT } from "@/app/api/team/[id]/tags/route";
 import { DELETE as tagsDELETE, PATCH as tagsPATCH, POST as tagsPOST } from "@/app/api/tags/route";
 import { usersWhoCanSeeDecision } from "@/lib/decision-audience";
+import RisksPage from "@/app/(app)/risks/page";
 import { __resetAccessCache } from "@/lib/access-control";
 
 const MARK = `aud${Date.now()}`;
@@ -120,11 +121,18 @@ beforeAll(async () => {
       createdByUserId: author.id,
       title: `${MARK} restricted budget cut`,
       status: "approved",
+      risks: `${MARK}-hidden-risk layoffs may leak`,
       audienceTags: { create: [{ tagId: tagFinance.id }, { tagId: tagLegal.id }] },
     },
   });
   const open = await prisma.decision.create({
-    data: { workspaceId: ws.id, createdByUserId: author.id, title: `${MARK} open roadmap`, status: "approved" },
+    data: {
+      workspaceId: ws.id,
+      createdByUserId: author.id,
+      title: `${MARK} open roadmap`,
+      status: "approved",
+      risks: `${MARK}-open-risk vendor delay`,
+    },
   });
 
   Object.assign(ctx, {
@@ -190,6 +198,30 @@ describe("reads honor audience tags", () => {
     sessionFor(ctx.finance);
     expect((await versionsGET(req("GET"), seg({ id: ctx.restricted }))).status).toBe(200);
     expect((await markdownGET(req("GET"), seg({ id: ctx.restricted }))).status).toBe(200);
+  });
+
+  it("risk register: hidden decisions' risks are not shown", async () => {
+    // The page is a server component; its rendered element tree carries the
+    // risk entries as props, so serializing it is enough to see what it shows.
+    const collect = (node: unknown, out: string[], seen = new Set<unknown>()): string[] => {
+      if (typeof node === "string") out.push(node);
+      else if (node && typeof node === "object" && !seen.has(node)) {
+        seen.add(node);
+        for (const v of Object.values(node as Record<string, unknown>)) collect(v, out, seen);
+      }
+      return out;
+    };
+    const render = async () =>
+      collect(await RisksPage({ searchParams: Promise.resolve({}) }), []).join("\n");
+
+    sessionFor(ctx.outsider);
+    let html = await render();
+    expect(html).toContain(`${MARK}-open-risk`);
+    expect(html).not.toContain(`${MARK}-hidden-risk`);
+
+    sessionFor(ctx.finance);
+    html = await render();
+    expect(html).toContain(`${MARK}-hidden-risk`);
   });
 
   it("watcher fan-out only includes users who can see the decision", async () => {
