@@ -11,6 +11,7 @@ const meta = {
     userName: "Ada Lovelace",
     userEmail: "admin@acme.demo",
     reviewsDue: 3,
+    isAdmin: true,
     children: null,
   },
 } satisfies Meta<typeof AppShell>;

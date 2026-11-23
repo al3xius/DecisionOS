@@ -7,6 +7,8 @@ import {
   type TagWriteInput,
   TagDeleteSchema,
   type TagDeleteInput,
+  TagUpdateSchema,
+  type TagUpdateInput,
 } from "@/lib/schemas";
 
 export const POST = withApi<TagWriteInput>(
@@ -24,6 +26,21 @@ export const POST = withApi<TagWriteInput>(
       data: { workspaceId: session.workspaceId, name, color },
     });
 
+    return NextResponse.json({ success: true });
+  },
+);
+
+/** PATCH /api/tags - change a tag's color. Admin only, tenant-scoped (404). */
+export const PATCH = withApi<TagUpdateInput>(
+  { require: "admin", schema: TagUpdateSchema },
+  async ({ session, body }) => {
+    const tag = sameWorkspace(
+      await prisma.tag.findUnique({ where: { id: body.tagId } }),
+      session,
+    );
+    if (!tag) return NextResponse.json({ error: "Tag not found." }, { status: 404 });
+
+    await prisma.tag.update({ where: { id: tag.id }, data: { color: body.color } });
     return NextResponse.json({ success: true });
   },
 );

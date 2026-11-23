@@ -217,11 +217,24 @@ export type BulkInput = z.infer<typeof BulkSchema>;
 
 // ── Tags ───────────────────────────────────────────────────────────────────────
 
+/** `#rrggbb` - chips append a 2-digit alpha to it, so other formats would break. */
+const tagColor = z
+  .string()
+  .trim()
+  .regex(/^#[0-9a-fA-F]{6}$/, "Color must be a hex value like #6366f1")
+  .transform((c) => c.toLowerCase());
+
 export const TagWriteSchema = z.object({
   name: z.string().trim().min(1).max(50, "Tag name must be 50 characters or less"),
-  color: z.string().max(20).nullable().optional(),
+  color: tagColor.nullable().optional(),
 });
 export type TagWriteInput = z.infer<typeof TagWriteSchema>;
+
+export const TagUpdateSchema = z.object({
+  tagId: z.string().min(1),
+  color: tagColor,
+});
+export type TagUpdateInput = z.infer<typeof TagUpdateSchema>;
 
 export const TagDeleteSchema = z.object({ tagId: z.string().min(1) });
 export type TagDeleteInput = z.infer<typeof TagDeleteSchema>;

@@ -34,7 +34,7 @@ import { GET as markdownGET } from "@/app/api/decisions/[id]/markdown/route";
 import { POST as sharePOST } from "@/app/api/decisions/[id]/share/route";
 import { POST as bulkPOST } from "@/app/api/decisions/bulk/route";
 import { PUT as memberTagsPUT } from "@/app/api/team/[id]/tags/route";
-import { DELETE as tagsDELETE } from "@/app/api/tags/route";
+import { DELETE as tagsDELETE, PATCH as tagsPATCH, POST as tagsPOST } from "@/app/api/tags/route";
 import { usersWhoCanSeeDecision } from "@/lib/decision-audience";
 import { __resetAccessCache } from "@/lib/access-control";
 
@@ -279,5 +279,28 @@ describe("writes", () => {
     sessionFor(ctx.admin, "admin");
     const res = await tagsDELETE(req("DELETE", { tagId: ctx.tagLegal }));
     expect(res.status).toBe(409);
+  });
+});
+
+describe("tag colors", () => {
+  it("an admin can change a tag's color (normalized to lowercase hex)", async () => {
+    sessionFor(ctx.admin, "admin");
+    const res = await tagsPATCH(req("PATCH", { tagId: ctx.tagFinance, color: "#12AB9F" }));
+    expect(res.status).toBe(200);
+    const tag = await prisma.tag.findUnique({ where: { id: ctx.tagFinance }, select: { color: true } });
+    expect(tag?.color).toBe("#12ab9f");
+  });
+
+  it("rejects non-hex colors on create and update", async () => {
+    sessionFor(ctx.admin, "admin");
+    expect((await tagsPATCH(req("PATCH", { tagId: ctx.tagFinance, color: "red" }))).status).toBe(400);
+    expect((await tagsPOST(req("POST", { name: `${MARK}-bad`, color: "url(x)" }))).status).toBe(400);
+  });
+
+  it("only admins, and only tags in their workspace", async () => {
+    sessionFor(ctx.finance);
+    expect((await tagsPATCH(req("PATCH", { tagId: ctx.tagFinance, color: "#000000" }))).status).toBe(403);
+    sessionFor(ctx.admin, "admin");
+    expect((await tagsPATCH(req("PATCH", { tagId: ctx.tagOther, color: "#000000" }))).status).toBe(404);
   });
 });

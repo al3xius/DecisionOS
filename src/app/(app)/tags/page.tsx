@@ -6,6 +6,7 @@ import { Tag } from "lucide-react";
 import { Text } from "@/components/ui/text";
 import { CreateTagForm } from "./create-tag-form";
 import { DeleteTagButton } from "./delete-tag-button";
+import { EditTagColor } from "./edit-tag-color";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageContainer } from "@/components/layout/page-container";
 
@@ -15,13 +16,15 @@ export default async function TagsPage() {
   const session = await getSession();
   if (!session) redirect("/login");
 
+  const isAdmin = session.role === "admin";
+
+  // How many decisions a tag restricts is admin-only information: it would tell
+  // other members that decisions exist that are hidden from them.
   const tags = await prisma.tag.findMany({
     where: { workspaceId: session.workspaceId },
     orderBy: { name: "asc" },
-    include: { _count: { select: { decisions: true, members: true, audienceDecisions: true } } },
+    include: { _count: { select: { decisions: true, members: true, audienceDecisions: isAdmin } } },
   });
-
-  const isAdmin = session.role === "admin";
 
   return (
     <PageContainer>
@@ -63,10 +66,14 @@ export default async function TagsPage() {
                   className="flex items-center justify-between p-3 rounded-xs border border-slate-100 hover:bg-slate-50"
                 >
                   <div className="flex items-center gap-3">
-                    <div
-                      className="inline-block h-3 w-3 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: tag.color ?? "#6366f1" }}
-                    />
+                    {isAdmin ? (
+                      <EditTagColor tagId={tag.id} name={tag.name} color={tag.color} />
+                    ) : (
+                      <div
+                        className="inline-block h-3 w-3 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: tag.color ?? "#6366f1" }}
+                      />
+                    )}
                     <Text style={{
                         backgroundColor: `${tag.color ?? "#6366f1"}18`,
                         borderColor: `${tag.color ?? "#6366f1"}40`,
@@ -78,7 +85,7 @@ export default async function TagsPage() {
                       {tag._count.decisions} decision{tag._count.decisions !== 1 ? "s" : ""}
                       {" · "}
                       {tag._count.members} member{tag._count.members !== 1 ? "s" : ""}
-                      {tag._count.audienceDecisions > 0 &&
+                      {isAdmin && tag._count.audienceDecisions > 0 &&
                         ` · restricts ${tag._count.audienceDecisions} decision${tag._count.audienceDecisions !== 1 ? "s" : ""}`}
                     </Text>
                   </div>

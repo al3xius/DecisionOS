@@ -4,15 +4,9 @@ import { useTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { NativeSelect } from "@/components/ui/native-select";
+import { ColorPicker } from "@/components/ui/color-picker";
 import { Text } from "@/components/ui/text";
 import { AlertCircle, Plus } from "lucide-react";
-
-const TAG_COLORS = [
-  "#6366f1", "#8b5cf6", "#ec4899", "#ef4444",
-  "#f97316", "#eab308", "#22c55e", "#06b6d4",
-  "#3b82f6", "#64748b",
-];
 
 export function CreateTagForm() {
   const [pending, startTransition] = useTransition();
@@ -58,19 +52,10 @@ export function CreateTagForm() {
         placeholder="e.g. security, performance"
         className="h-8 w-48"
       />
-      <NativeSelect
-        label="Color"
-        fieldClassName="space-y-1"
-        value={color}
-        onChange={(e) => setColor(e.target.value)}
-        className="h-8 w-32 px-2"
-      >
-        {TAG_COLORS.map((c) => (
-          <option key={c} value={c} style={{ backgroundColor: c, color: "#fff" }}>
-            {c}
-          </option>
-        ))}
-      </NativeSelect>
+      <div className="space-y-1">
+        <Text as="p" size="sm" weight="medium">Color</Text>
+        <ColorPicker value={color} onChange={setColor} label="Tag color" disabled={pending} />
+      </div>
       <Button size="sm" disabled={pending} onClick={handleCreate}>
         <Plus className="h-3.5 w-3.5" />
         {pending ? "Creating…" : "Create Tag"}
