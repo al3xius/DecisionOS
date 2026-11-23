@@ -85,7 +85,7 @@ export default async function TeamPage() {
 
       <div className="rounded-xs transition-all duration-200 animate-enter animate-enter-delay-2 overflow-hidden">
         <div className={cn("flex flex-col space-y-1.5 p-6", "pb-3")}>
-          <Text as="h3">
+          <Text as="h3" className="flex items-center gap-2">
             <Users className="h-4 w-4 text-slate-700" />
             Members
           </Text>
@@ -115,16 +115,22 @@ export default async function TeamPage() {
                     </div>
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <Text>
+                        <Text weight="medium" color="primary">
                           {m.user.name}
                         </Text>
                         {isCurrentUser && (
-                          <Text>
+                          <Text
+                            as="span"
+                            size="2xs"
+                            weight="medium"
+                            color="muted"
+                            className="rounded-full bg-slate-100 px-2 py-0.5"
+                          >
                             You
                           </Text>
                         )}
                       </div>
-                      <Text>{m.user.email}</Text>
+                      <Text as="p" size="xs" color="muted">{m.user.email}</Text>
                       <div className="mt-1.5">
                         <MemberTags
                           membershipId={m.id}
@@ -138,7 +144,7 @@ export default async function TeamPage() {
                   </div>
 
                   <div className="flex items-center justify-between gap-3 sm:justify-end">
-                    <Text>Joined {formatDate(m.joinedAt)}</Text>
+                    <Text size="xs" color="muted" className="whitespace-nowrap">Joined {formatDate(m.joinedAt)}</Text>
                     {isAdmin && !isCurrentUser ? (
                       <MemberControls membershipId={m.id} name={m.user.name} role={m.role} />
                     ) : (

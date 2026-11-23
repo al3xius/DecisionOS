@@ -48,7 +48,7 @@ export default async function TagsPage() {
 
       <div className="rounded-xs transition-all duration-200">
         <div className={cn("flex flex-col space-y-1.5 p-6", "pb-3")}>
-          <Text as="h3">
+          <Text as="h3" className="flex items-center gap-2">
             <Tag className="h-4 w-4" />
             Workspace Tags ({tags.length})
           </Text>

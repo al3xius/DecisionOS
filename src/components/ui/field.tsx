@@ -53,7 +53,7 @@ export function FieldFrame({
         children
       )}
       {hint != null && (
-        <Text as="div" size="xs" color="subtle">
+        <Text as="div" size="xs" color="muted">
           {hint}
         </Text>
       )}

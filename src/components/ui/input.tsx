@@ -28,7 +28,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         type={type}
         id={inputId}
         className={          cn(
-            "flex h-10 w-full rounded-xs bg-white/92 px-3 py-2 shadow-soft transition-[box-shadow,background-color] duration-200 file:border-0 file:bg-transparent file:font-medium placeholder:text-text-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50",
+            "flex h-10 w-full rounded-xs bg-white px-3 py-2 shadow-soft transition-[box-shadow,background-color] duration-200 file:border-0 file:bg-transparent file:font-medium placeholder:text-text-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50",
             TEXT_SIZE.sm,
           suffix && "min-w-0 flex-1",
           className,

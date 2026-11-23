@@ -4,6 +4,7 @@ import { actionItemVisibilityWhere, decisionVisibilityWhere } from "@/lib/tenant
 import { redirect } from "next/navigation";
 import { KanbanBoard } from "./kanban-board";
 import { PageHeader } from "@/components/layout/page-header";
+import { PageContainer } from "@/components/layout/page-container";
 
 export const metadata = { title: "Board" };
 
@@ -33,7 +34,7 @@ export default async function BoardPage() {
   ]);
 
   return (
-    <div className="flex flex-col gap-8 px-4 pb-8 pt-16 sm:px-8 lg:pt-8">
+    <PageContainer>
       <PageHeader
         title="Board"
         description={<>Action items across all decisions · {items.filter(i => i.status !== "done" && i.status !== "cancelled").length} open</>}
@@ -46,6 +47,6 @@ export default async function BoardPage() {
         currentUserId={session.userId}
         isViewer={session.role === "viewer"}
       />
-    </div>
+    </PageContainer>
   );
 }

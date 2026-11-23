@@ -53,7 +53,9 @@ export function CreateTagForm() {
         className="h-8 w-48"
       />
       <div className="space-y-1">
-        <Text as="p" size="sm" weight="medium">Color</Text>
+        <Text as="span" size="sm" color="secondary" weight="medium" leading="none" className="block">
+          Color
+        </Text>
         <ColorPicker value={color} onChange={setColor} label="Tag color" disabled={pending} />
       </div>
       <Button size="sm" disabled={pending} onClick={handleCreate}>

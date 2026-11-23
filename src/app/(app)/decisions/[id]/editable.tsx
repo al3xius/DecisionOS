@@ -13,7 +13,7 @@ import { Row as ListRow } from "@/components/ui/row";
 import { Text } from "@/components/ui/text";
 import { Plus, Check, Pencil, Lock, Users } from "lucide-react";
 import { TEXT_SIZE } from "@/lib/typography";
-import { cn, STATUS_COLORS, STATUSES, getLabelForValue } from "@/lib/utils";
+import { cn, formatDate, STATUS_COLORS, STATUSES, getLabelForValue } from "@/lib/utils";
 
 /** Pencil that fades in on row hover - the edit affordance for inline-editable rows.
  *  Smallest (24px) icon button; pointer-events-none so the row's own click handles it. */
@@ -368,7 +368,7 @@ export function EditablePill({
       <SelectTrigger
         aria-label={ariaLabel}
         className={cn(
-          "inline-flex h-6 w-auto items-center gap-1 whitespace-nowrap rounded-full border px-2 tracking-tighter !shadow-none [&>svg]:h-3 [&>svg]:w-3 [&>svg]:opacity-60",
+          "inline-flex h-6 w-auto items-center gap-1 whitespace-nowrap rounded-full border px-2 tracking-tighter shadow-none! [&>svg]:h-3 [&>svg]:w-3 [&>svg]:opacity-60",
           colors[value] ?? "bg-slate-100 text-slate-600 border-slate-200",
         )}
       >
@@ -481,17 +481,23 @@ export function EditableDate({
         <div className="flex items-center justify-between gap-2">
           <span className="flex items-center gap-1.5">
             {prefix && <span>{prefix}</span>}
-            <input
-              ref={inputRef}
-              type="date"
-              value={value ? value.slice(0, 10) : ""}
-              disabled={saving}
-              onChange={(e) => onChange(e.target.value)}
-              className={cn(
-                TEXT_SIZE.sm,
-                "cursor-pointer bg-transparent text-inherit outline-none [&::-webkit-calendar-picker-indicator]:hidden",
-              )}
-            />
+            {/* Show the date in the app-wide format ("Nov 23, 2026") rather than
+                the browser-locale format of the native input, which stays on top
+                (invisible) so clicks and keyboard still open the picker. */}
+            <span className="relative rounded-xs has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-blue-500">
+              <span className={cn(TEXT_SIZE.sm, !value && "text-text-subtle")}>
+                {value ? formatDate(value) : "Set date"}
+              </span>
+              <input
+                ref={inputRef}
+                type="date"
+                aria-label={prefix ? `${prefix.replace(/:$/, "")} date` : "Date"}
+                value={value ? value.slice(0, 10) : ""}
+                disabled={saving}
+                onChange={(e) => onChange(e.target.value)}
+                className="absolute inset-0 h-full w-full cursor-pointer opacity-0 outline-none [&::-webkit-calendar-picker-indicator]:hidden"
+              />
+            </span>
           </span>
           {editAffordance}
         </div>

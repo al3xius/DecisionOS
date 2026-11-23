@@ -174,6 +174,25 @@ html, body {
   height: 100%;
 }
 
+/* Form controls: a solid, clearly visible edge against the slate page
+   background (the default shadow-soft ring is a 40% slate-300 hairline, made
+   for cards - too faint to read as a field). Darkens on hover; focus keeps the
+   blue focus ring. Radix Select triggers are buttons with role="combobox". */
+@layer base {
+  input:not([type="checkbox"], [type="radio"], [type="color"], [type="range"], [type="hidden"]),
+  textarea,
+  select,
+  [role="combobox"] {
+    --shadow-ring: var(--color-slate-400);
+  }
+  input:not([type="checkbox"], [type="radio"], [type="color"], [type="range"], [type="hidden"]):hover:not(:disabled),
+  textarea:hover:not(:disabled),
+  select:hover:not(:disabled),
+  [role="combobox"]:hover:not([data-disabled]) {
+    --shadow-ring: var(--color-slate-500);
+  }
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
