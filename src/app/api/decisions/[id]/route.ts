@@ -2,18 +2,20 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { DecisionPatchSchema, type DecisionPatchInput } from "@/lib/schemas";
 import { withApi } from "@/lib/api-handler";
-import { visibleDecision } from "@/lib/tenant";
+import { decisionVisibilityWhere } from "@/lib/tenant";
 import { notifyDecisionWatchers } from "@/lib/notify-watchers";
+import { resolveAudienceTagIds } from "@/lib/decision-audience";
+import { audienceEventJson } from "@/lib/activity-events";
 
 export const PUT = withApi<DecisionPatchInput, { id: string }>(
   { require: "writer", schema: DecisionPatchSchema },
   async ({ session, body, params }) => {
     const { id } = params;
 
-    const existing = visibleDecision(
-      await prisma.decision.findUnique({ where: { id } }),
-      session,
-    );
+    const existing = await prisma.decision.findFirst({
+      where: { id, ...decisionVisibilityWhere(session) },
+      include: { audienceTags: { select: { tagId: true, tag: { select: { name: true } } } } },
+    });
     if (!existing) return NextResponse.json({ error: "Decision not found." }, { status: 404 });
 
     // Build a partial update from only the keys the client actually sent, so an
@@ -47,21 +49,28 @@ export const PUT = withApi<DecisionPatchInput, { id: string }>(
     for (const k of ["decisionDate", "reviewDate"] as const) {
       if (has(k)) data[k] = body[k] ? new Date(body[k] as string) : null;
     }
+    // Audience ("visible to") tags: replace the whole set when sent.
+    let nextAudience: string[] | null = null;
+    if (has("audienceTagIds")) {
+      const resolved = await resolveAudienceTagIds(session.workspaceId, body.audienceTagIds ?? []);
+      if (!resolved.ok) return NextResponse.json({ error: resolved.error }, { status: 400 });
+      const current = new Set(existing.audienceTags.map((t) => t.tagId));
+      const same =
+        current.size === resolved.tagIds.length && resolved.tagIds.every((t) => current.has(t));
+      if (!same) nextAudience = resolved.tagIds;
+    }
     // Visibility is the author's call: anyone else flipping a decision to
-    // private would hide it from themselves and everyone but the author.
-    if (
-      data.visibility !== undefined &&
-      data.visibility !== existing.visibility &&
-      existing.createdByUserId !== session.userId &&
-      session.role !== "admin"
-    ) {
+    // private (or narrowing its audience) would hide it from everyone else.
+    const visibilityChanged =
+      (data.visibility !== undefined && data.visibility !== existing.visibility) || nextAudience !== null;
+    if (visibilityChanged && existing.createdByUserId !== session.userId && session.role !== "admin") {
       return NextResponse.json(
         { error: "Only the decision's author or an admin can change who can see it." },
         { status: 403 },
       );
     }
-    // A private decision can't have a public link.
-    if (data.visibility === "private" && existing.shareToken) {
+    // A private or audience-restricted decision can't have a public link.
+    if ((data.visibility === "private" || (nextAudience?.length ?? 0) > 0) && existing.shareToken) {
       data.shareToken = null;
     }
     // Scheduling a review after the last one re-arms it: every "due" query keys
@@ -84,14 +93,15 @@ export const PUT = withApi<DecisionPatchInput, { id: string }>(
 
     // No-op if nothing actually changed - avoids version/event churn on the
     // frequent inline saves.
-    const existingRecord = existing as unknown as Record<string, unknown>;
-    const changed = Object.keys(data).some((k) => {
+    const { audienceTags: existingAudience, ...existingRecord } = existing as typeof existing &
+      Record<string, unknown>;
+    const fieldsChanged = Object.keys(data).some((k) => {
       const a = data[k], b = existingRecord[k];
       if (a instanceof Date || b instanceof Date)
         return new Date(a as string).getTime() !== new Date(b as string).getTime();
       return a !== b;
     });
-    if (!changed) return NextResponse.json({ success: true });
+    if (!fieldsChanged && nextAudience === null) return NextResponse.json({ success: true });
 
     const oldStatus = existing.status;
 
@@ -102,17 +112,39 @@ export const PUT = withApi<DecisionPatchInput, { id: string }>(
     const updated = await prisma.$transaction(async (tx) => {
       const versionCount = await tx.decisionVersion.count({ where: { decisionId: id } });
       const row = await tx.decision.update({ where: { id }, data });
+      if (nextAudience !== null) {
+        await tx.decisionAudienceTag.deleteMany({ where: { decisionId: id } });
+        if (nextAudience.length > 0) {
+          await tx.decisionAudienceTag.createMany({
+            data: nextAudience.map((tagId) => ({ decisionId: id, tagId })),
+          });
+        }
+        const nextTags = await tx.tag.findMany({ where: { id: { in: nextAudience } }, select: { name: true } });
+        await tx.decisionEvent.create({
+          data: {
+            decisionId: id,
+            userId: session.userId,
+            eventType: "audience_changed",
+            oldValueJson: audienceEventJson(existingAudience.map((t) => t.tag)),
+            newValueJson: audienceEventJson(nextTags),
+          },
+        });
+      }
 
       await tx.decisionVersion.create({
         data: {
           decisionId: id,
           versionNum: versionCount + 1,
-          snapshotJson: JSON.stringify(existing),
+          snapshotJson: JSON.stringify({
+            ...existingRecord,
+            audienceTagIds: existingAudience.map((t) => t.tagId),
+          }),
           changedById: session.userId,
         },
       });
 
-      await tx.decisionEvent.create({
+      // An audience-only change already has its own "audience_changed" event.
+      if (fieldsChanged) await tx.decisionEvent.create({
         data: {
           decisionId: id,
           userId: session.userId,

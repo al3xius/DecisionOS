@@ -58,11 +58,12 @@ export default async function ShareDecisionPage({ params }: PageProps) {
 
   // Only an explicitly created link resolves - never a raw decision id - and
   // only while the workspace allows public links and the decision is
-  // workspace-visible. Every miss is the same 404, so nothing leaks.
+  // workspace-visible with no audience restriction. Every miss is the same 404, so nothing leaks.
   const decision = await prisma.decision.findUnique({
     where: { shareToken: token },
     include: {
       workspace: { select: { name: true, publicSharing: true } },
+      _count: { select: { audienceTags: true } },
       createdBy: { select: { name: true } },
       owner: { select: { name: true } },
       reviews: {
@@ -73,7 +74,14 @@ export default async function ShareDecisionPage({ params }: PageProps) {
     },
   });
 
-  if (!decision || !decision.workspace.publicSharing || decision.visibility !== "workspace") notFound();
+  if (
+    !decision ||
+    !decision.workspace.publicSharing ||
+    decision.visibility !== "workspace" ||
+    decision._count.audienceTags > 0
+  ) {
+    notFound();
+  }
 
   return (
     <div className="min-h-screen bg-slate-50">

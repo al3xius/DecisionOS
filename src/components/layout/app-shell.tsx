@@ -11,6 +11,7 @@ interface AppShellProps {
   userName: string;
   userEmail: string;
   reviewsDue: number;
+  isAdmin?: boolean;
   isPlatformAdmin?: boolean;
   children: React.ReactNode;
 }
@@ -41,6 +42,7 @@ export function AppShell({
   userName,
   userEmail,
   reviewsDue,
+  isAdmin,
   isPlatformAdmin,
   children,
 }: AppShellProps) {
@@ -95,6 +97,7 @@ export function AppShell({
           userName={userName}
           userEmail={userEmail}
           reviewsDue={reviewsDue}
+          isAdmin={isAdmin}
           isPlatformAdmin={isPlatformAdmin}
           onNavigate={() => setMobileOpen(false)}
         />

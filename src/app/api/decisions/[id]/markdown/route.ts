@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withApi } from "@/lib/api-handler";
-import { sameWorkspace } from "@/lib/tenant";
+import { decisionVisibilityWhere } from "@/lib/tenant";
 import { exportLimiter, mutationKey } from "@/lib/rate-limit";
 import { decisionToMarkdown, exportFileSlug } from "@/lib/decision-export";
 
@@ -23,9 +23,10 @@ export const GET = withApi<undefined, { id: string }>(
       );
     }
 
-    const decision = sameWorkspace(
-      await prisma.decision.findUnique({
-        where: { id: params.id },
+    // Same visibility rule as list and search: private and audience-restricted
+    // decisions resolve only for those allowed to see them.
+    const decision = await prisma.decision.findFirst({
+        where: { id: params.id, ...decisionVisibilityWhere(session) },
         include: {
           owner: { select: { name: true } },
           createdBy: { select: { name: true } },
@@ -36,16 +37,8 @@ export const GET = withApi<undefined, { id: string }>(
             include: { reviewedBy: { select: { name: true } } },
           },
         },
-      }),
-      session,
-    );
+      });
     if (!decision) return NextResponse.json({ error: "Decision not found." }, { status: 404 });
-
-    // A private decision is readable only by its author, matching the visibility
-    // rule the list and search endpoints enforce.
-    if (decision.visibility !== "workspace" && decision.createdByUserId !== session.userId) {
-      return NextResponse.json({ error: "Decision not found." }, { status: 404 });
-    }
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin;
     const markdown = decisionToMarkdown(decision, { baseUrl });

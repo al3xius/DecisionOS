@@ -10,6 +10,7 @@ const meta = {
     userName: "Ada Lovelace",
     userEmail: "admin@acme.demo",
     reviewsDue: 3,
+    isAdmin: true,
   },
 } satisfies Meta<typeof Sidebar>;
 
@@ -25,3 +26,4 @@ export const Default: Story = {
 };
 
 export const NoReviewsDue: Story = { ...Default, args: { reviewsDue: 0 } };
+export const Member: Story = { ...Default, args: { isAdmin: false } };

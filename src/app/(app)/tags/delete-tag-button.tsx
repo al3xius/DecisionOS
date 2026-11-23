@@ -15,7 +15,7 @@ export function DeleteTagButton({ tagId }: { tagId: string }) {
     <button
       disabled={pending}
       onClick={() => {
-        if (!confirm("Delete this tag? It will be removed from all decisions.")) return;
+        if (!confirm("Delete this tag? It will be removed from all decisions and members.")) return;
         startTransition(async () => {
           const err = await sendJson("/api/tags", "DELETE", { tagId });
           if (err) toast.error(`Could not delete tag: ${err}`);

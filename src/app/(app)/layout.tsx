@@ -45,12 +45,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         userName={session.name}
         userEmail={session.email}
         reviewsDue={reviewsDue}
+        isAdmin={session.role === "admin" || actingAsPlatform}
         isPlatformAdmin={actingAsPlatform}
       >
         {children}
       </AppShell>
       <CommandPalette />
-      <ShortcutsOverlay />
+      <ShortcutsOverlay isAdmin={session.role === "admin" || actingAsPlatform} />
     </ToastProvider>
   );
 }

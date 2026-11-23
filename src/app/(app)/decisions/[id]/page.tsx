@@ -1,6 +1,7 @@
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { decisionVisibilityWhere, visibleDecision } from "@/lib/tenant";
+import { decisionVisibilityWhere } from "@/lib/tenant";
+import { activityEventDetail } from "@/lib/activity-events";
 import { shareUrl } from "@/lib/share-link";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
@@ -17,6 +18,7 @@ import { Row } from "./row";
 import { DecisionActions } from "./decision-actions";
 import { WatchButton } from "./watch-button";
 import { TagPicker } from "./tag-picker";
+import { AudiencePicker } from "./audience-picker";
 import { ActionItems } from "./action-items";
 import { RemoveRelationButton } from "./remove-relation-button";
 import { ReactionsBar } from "./reactions-bar";
@@ -111,6 +113,9 @@ const EVENT_LABELS: Record<string, string> = {
   link_added: "added a link",
   share_enabled: "created a public link",
   share_revoked: "revoked the public link",
+  tag_added: "added the tag",
+  tag_removed: "removed the tag",
+  audience_changed: "changed who can see this:",
 };
 
 /** Tab title is the decision's own title - only for decisions the viewer may see. */
@@ -133,8 +138,8 @@ export default async function DecisionDetailPage({ params }: PageProps) {
   const isViewer = session.role === "viewer";
 
   const [decision, workspaceDecisions, memberships, workspaceTags] = await Promise.all([
-    prisma.decision.findUnique({
-      where: { id },
+    prisma.decision.findFirst({
+      where: { id, ...decisionVisibilityWhere(session) },
       include: {
         workspace: { select: { publicSharing: true } },
         createdBy: { select: { id: true, name: true, email: true } },
@@ -162,15 +167,15 @@ export default async function DecisionDetailPage({ params }: PageProps) {
           orderBy: { createdAt: "desc" },
           take: 20,
         },
+        // Don't reveal the titles of hidden (private / audience-restricted)
+        // decisions through relations.
         relationsFrom: {
-          include: {
-            toDecision: { select: { id: true, title: true, status: true, workspaceId: true, visibility: true, createdByUserId: true } },
-          },
+          where: { toDecision: decisionVisibilityWhere(session) },
+          include: { toDecision: { select: { id: true, title: true, status: true } } },
         },
         relationsTo: {
-          include: {
-            fromDecision: { select: { id: true, title: true, status: true, workspaceId: true, visibility: true, createdByUserId: true } },
-          },
+          where: { fromDecision: decisionVisibilityWhere(session) },
+          include: { fromDecision: { select: { id: true, title: true, status: true } } },
         },
         actionItems: {
           select: {
@@ -186,6 +191,7 @@ export default async function DecisionDetailPage({ params }: PageProps) {
         },
         // Tag count feeds the record-quality meter in the right column.
         tags: { select: { tag: { select: { id: true, name: true, color: true } } } },
+        audienceTags: { select: { tag: { select: { id: true, name: true, color: true } } } },
       },
     }),
     prisma.decision.findMany({
@@ -204,17 +210,9 @@ export default async function DecisionDetailPage({ params }: PageProps) {
     }),
   ]);
 
-  if (
-    !decision ||
-    decision.workspaceId !== session.workspaceId ||
-    (decision.visibility !== "workspace" && decision.createdByUserId !== session.userId)
-  ) {
-    notFound();
-  }
+  if (!decision) notFound();
 
-  // Don't reveal the titles of other people's private decisions through links.
-  const relationsFrom = decision.relationsFrom.filter((r) => visibleDecision(r.toDecision, session));
-  const relationsTo = decision.relationsTo.filter((r) => visibleDecision(r.fromDecision, session));
+  const { relationsFrom, relationsTo } = decision;
   const canRemoveRelation = (r: { createdByUserId: string }) =>
     !isViewer && (r.createdByUserId === session.userId || session.role === "admin");
   const canChangeVisibility =
@@ -275,7 +273,7 @@ export default async function DecisionDetailPage({ params }: PageProps) {
               workspaceDecisions={workspaceDecisions.map((d) => ({ id: d.id, title: d.title }))}
               shareUrl={decision.shareToken ? shareUrl(decision.shareToken) : null}
               sharingEnabled={decision.workspace.publicSharing}
-              isPrivate={decision.visibility !== "workspace"}
+              isPrivate={decision.visibility !== "workspace" || decision.audienceTags.length > 0}
             />
           )}
         </div>
@@ -644,6 +642,18 @@ export default async function DecisionDetailPage({ params }: PageProps) {
             />
           </Section>
 
+          {/* Audience restriction - moot while the decision is private. */}
+          {decision.visibility === "workspace" && (canChangeVisibility || decision.audienceTags.length > 0) && (
+            <Section title="Visible to">
+              <AudiencePicker
+                decisionId={id}
+                applied={decision.audienceTags.map((t) => t.tag)}
+                available={workspaceTags}
+                readOnly={!canChangeVisibility}
+              />
+            </Section>
+          )}
+
           {/* Decision relations (inline list) */}
           {(relationsFrom.length > 0 || relationsTo.length > 0) && (
             <div id="relations">
@@ -713,25 +723,19 @@ export default async function DecisionDetailPage({ params }: PageProps) {
               ) : (
                 <div className="space-y-3">
                   {decision.events.map((event) => {
-                    let detail = "";
-                    if (event.eventType === "status_changed" && event.newValueJson) {
-                      try {
-                        const val = JSON.parse(event.newValueJson);
-                        detail = `→ ${val.status}`;
-                      } catch { /* empty */ }
-                    }
+                    const detail = activityEventDetail(event.eventType, event.newValueJson, event.oldValueJson);
                     return (
                       <div key={event.id} className="flex gap-2">
                         <Avatar>
                           <AvatarFallback>{event.user.name.charAt(0).toUpperCase()}</AvatarFallback>
                         </Avatar>
                         <div>
-                          <Text>{event.user.name} </Text>
-                          <Text>
+                          <Text as="p" color="secondary">
+                            <Text as="span" weight="medium" color="primary">{event.user.name}</Text>{" "}
                             {EVENT_LABELS[event.eventType] ?? event.eventType}
+                            {detail && <Text as="span" weight="medium" color="primary">{` ${detail}`}</Text>}
                           </Text>
-                          {detail && <Text> {detail}</Text>}
-                          <Text as="p">{formatRelativeDate(event.createdAt)}</Text>
+                          <Text as="p" size="xs" color="subtle">{formatRelativeDate(event.createdAt)}</Text>
                         </div>
                       </div>
                     );

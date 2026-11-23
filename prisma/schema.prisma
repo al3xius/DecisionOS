@@ -73,8 +73,25 @@ model WorkspaceMembership {
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tags      MemberTag[]
 
   @@unique([workspaceId, userId])
+}
+
+// Tags assigned to a workspace member. Tied to the membership (not the global
+// User) because tags are workspace-scoped; removing a member drops their tags.
+// Used for audience-restricted decision visibility (see DecisionAudienceTag).
+model MemberTag {
+  id           String   @id @default(cuid())
+  membershipId String
+  tagId        String
+  createdAt    DateTime @default(now())
+
+  membership WorkspaceMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  tag        Tag                 @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, tagId])
+  @@index([tagId])
 }
 
 model Decision {
@@ -122,6 +139,9 @@ model Decision {
   actionItems   ActionItem[]
   reactions     DecisionReaction[]
   watchers      DecisionWatcher[]
+  // Audience restriction: when non-empty, only members holding at least one of
+  // these tags (plus the author) can see the decision. Empty = whole workspace.
+  audienceTags  DecisionAudienceTag[]
 
   @@index([workspaceId])
   @@index([workspaceId, status])
@@ -287,10 +307,28 @@ model Tag {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  decisions DecisionTag[]
+  workspace         Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  decisions         DecisionTag[]
+  members           MemberTag[]
+  audienceDecisions DecisionAudienceTag[]
 
   @@unique([workspaceId, name])
+}
+
+// "Visible to" tags on a decision - distinct from DecisionTag (categorization).
+// A decision with one or more audience tags is visible only to its author and to
+// members who hold at least one of the tags. Enforced in src/lib/tenant.ts.
+model DecisionAudienceTag {
+  id         String   @id @default(cuid())
+  decisionId String
+  tagId      String
+  createdAt  DateTime @default(now())
+
+  decision Decision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  tag      Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([decisionId, tagId])
+  @@index([tagId])
 }
 
 model DecisionTag {

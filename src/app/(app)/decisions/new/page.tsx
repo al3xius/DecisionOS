@@ -1,5 +1,6 @@
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { decisionVisibilityWhere } from "@/lib/tenant";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -22,19 +23,24 @@ export default async function NewDecisionPage({ searchParams }: PageProps) {
 
   const sp = await searchParams;
 
-  const [memberships, supersedes, templates, aiEnabled] = await Promise.all([
+  const [memberships, supersedes, templates, aiEnabled, tags] = await Promise.all([
     prisma.workspaceMembership.findMany({
       where: { workspaceId: session.workspaceId },
       include: { user: { select: { id: true, name: true } } },
     }),
     sp.supersedes
-      ? prisma.decision.findUnique({
-          where: { id: sp.supersedes },
+      ? prisma.decision.findFirst({
+          where: { id: sp.supersedes, ...decisionVisibilityWhere(session) },
           select: { id: true, title: true, workspaceId: true },
         })
       : Promise.resolve(null),
     listTemplates(session.workspaceId),
     isAIConfigured(session.workspaceId),
+    prisma.tag.findMany({
+      where: { workspaceId: session.workspaceId },
+      select: { id: true, name: true, color: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   const members = memberships.map((m) => m.user);
@@ -60,6 +66,7 @@ export default async function NewDecisionPage({ searchParams }: PageProps) {
 
       <DecisionForm
         members={members}
+        audienceTags={tags}
         templates={templates}
         aiEnabled={aiEnabled}
         defaultValues={{ decisionDate: today }}

@@ -1,5 +1,6 @@
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { decisionVisibilityWhere } from "@/lib/tenant";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { PageContainer } from "@/components/layout/page-container";
@@ -8,7 +9,12 @@ import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { formatRelativeDate } from "@/lib/utils";
 import { ActivityFilters } from "./activity-filters";
-import { ACTIVITY_EVENT_TYPES, activityEventVerb, type ActivityEventType } from "@/lib/activity-events";
+import {
+  ACTIVITY_EVENT_TYPES,
+  activityEventDetail,
+  activityEventVerb,
+  type ActivityEventType,
+} from "@/lib/activity-events";
 
 export const metadata = { title: "Activity" };
 
@@ -30,7 +36,7 @@ export default async function ActivityPage({
   const user = sp.user || undefined;
 
   const where = {
-    decision: { workspaceId: session.workspaceId },
+    decision: decisionVisibilityWhere(session),
     ...(type ? { eventType: type } : {}),
     ...(user ? { userId: user } : {}),
   };
@@ -87,6 +93,10 @@ export default async function ActivityPage({
                   <Text as={Link} href={`/decisions/${e.decision.id}`} color="brand">
                     {e.decision.title}
                   </Text>
+                  {(() => {
+                    const detail = activityEventDetail(e.eventType, e.newValueJson, e.oldValueJson);
+                    return detail ? <Text as="span" color="muted">{` · ${detail}`}</Text> : null;
+                  })()}
                 </Text>
                 <Text as="span" size="xs" color="subtle" className="shrink-0">
                   {formatRelativeDate(e.createdAt)}

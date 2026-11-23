@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { usersWhoCanSeeDecision } from "@/lib/decision-audience";
 import { logger } from "@/lib/logger";
 import { sendMail } from "@/lib/email";
 
@@ -61,7 +62,12 @@ export async function notifyDecisionWatchers(opts: NotifyOpts): Promise<void> {
       where: { decisionId: opts.decisionId },
       select: { userId: true },
     });
-    const recipientIds = new Set(watchers.map((w) => w.userId));
+    // Only watchers who can (still) see the decision: a watcher who lost access
+    // through private visibility or audience tags must not receive its title.
+    const recipientIds = await usersWhoCanSeeDecision(
+      opts.decisionId,
+      watchers.map((w) => w.userId),
+    );
     recipientIds.delete(opts.actorUserId);
     if (recipientIds.size === 0) return;
 

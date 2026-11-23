@@ -229,6 +229,8 @@ interface DecisionFormProps {
     reviewDate?: string;
   };
   members: Member[];
+  /** Workspace tags offered for the "Visible to" audience restriction. */
+  audienceTags?: { id: string; name: string; color: string | null }[];
   templates?: FormTemplate[];
   /** Show "Suggest with AI" - only when the workspace has a model configured. */
   aiEnabled?: boolean;
@@ -291,6 +293,7 @@ export function DecisionForm({
   supersedesTitle,
   defaultValues = {},
   members,
+  audienceTags = [],
   templates = [],
   aiEnabled = false,
   isEdit,
@@ -306,6 +309,7 @@ export function DecisionForm({
   const [impactLevel, setImpactLevel] = useState(defaultValues.impactLevel ?? "medium");
   const [status, setStatus] = useState(defaultValues.status ?? "approved");
   const [isPrivate, setIsPrivate] = useState(defaultValues.visibility === "private");
+  const [audienceTagIds, setAudienceTagIds] = useState<string[]>([]);
   const [appliedTemplateId, setAppliedTemplateId] = useState<string | null>(null);
   // Bumped whenever a template or AI fills fields, so collapsed sections that
   // just received content re-mount open.
@@ -431,6 +435,7 @@ export function DecisionForm({
       assumptions: assumptions || null,
       risks: risks || null,
       visibility: isPrivate ? "private" : "workspace",
+      audienceTagIds: isPrivate ? [] : audienceTagIds,
     };
 
     setError(undefined);
@@ -739,6 +744,43 @@ export function DecisionForm({
           </Text>
         </span>
       </label>
+
+      {!isPrivate && audienceTags.length > 0 && (
+        <fieldset className="space-y-1.5 rounded-xs bg-white px-4 py-3">
+          <Text as="legend" weight="medium">Visible to</Text>
+          <div className="flex flex-wrap gap-1.5">
+            {audienceTags.map((t) => {
+              const checked = audienceTagIds.includes(t.id);
+              const c = t.color ?? "#6366f1";
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  aria-pressed={checked}
+                  onClick={() =>
+                    setAudienceTagIds((prev) =>
+                      checked ? prev.filter((id) => id !== t.id) : [...prev, t.id]
+                    )
+                  }
+                  className="inline-flex items-center rounded-full border px-2.5 py-1 transition-colors"
+                  style={
+                    checked
+                      ? { backgroundColor: `${c}18`, borderColor: c, color: c }
+                      : { backgroundColor: "white", borderColor: "#e2e8f0" }
+                  }
+                >
+                  <Text as="span" size="xs" color="inherit">{t.name}</Text>
+                </button>
+              );
+            })}
+          </div>
+          <FieldHint>
+            {audienceTagIds.length === 0
+              ? "Everyone in the workspace can see it. Pick tags to limit it to members holding any of them."
+              : "Only you and members holding at least one of the selected tags can see it."}
+          </FieldHint>
+        </fieldset>
+      )}
 
       <Disclosure
         key={`alt-${prefillVersion}`}

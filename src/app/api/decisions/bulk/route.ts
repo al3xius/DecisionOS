@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { decisionVisibilityWhere } from "@/lib/tenant";
 import { notifyDecisionWatchers } from "@/lib/notify-watchers";
 import { withApi } from "@/lib/api-handler";
 import { bulkOperationLimiter, mutationKey } from "@/lib/rate-limit";
@@ -18,9 +19,9 @@ export const POST = withApi<BulkInput>(
 
     const { action, ids } = body;
 
-    // Verify every id belongs to the caller's workspace.
+    // Verify every id belongs to the caller's workspace and is visible to them.
     const decisions = await prisma.decision.findMany({
-      where: { id: { in: ids }, workspaceId: session.workspaceId },
+      where: { id: { in: ids }, ...decisionVisibilityWhere(session) },
       select: {
         id: true, title: true, status: true, category: true, impactLevel: true,
         summary: true, problemStatement: true, chosenOption: true, rationale: true,

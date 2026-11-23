@@ -21,18 +21,55 @@ export function workspaceWhere(session: TenantSession): { workspaceId: string } 
 }
 
 /**
- * Workspace filter that also respects per-decision visibility: workspace-visible
- * decisions, plus the caller's own private ones. Use for any decision read that
- * a member could trigger (list, search, ask, share-within-app).
+ * The visibility rule for a decision, relative to the caller. A decision is
+ * visible when the caller authored it, or when it is workspace-visible AND
+ * either has no audience tags or carries at least one tag the caller holds
+ * (via MemberTag on their membership in this workspace).
+ *
+ * Expressed as a relation filter so it needs no pre-fetched tag list: it works
+ * nested (e.g. `{ decision: decisionAccessWhere(s) }`) as well as top-level.
+ * Does NOT include the workspace constraint - see `decisionVisibilityWhere`.
  */
-export function decisionVisibilityWhere(session: TenantSession): {
-  workspaceId: string;
-  OR: ({ visibility: "workspace" } | { createdByUserId: string })[];
-} {
+export function decisionAccessWhere(session: TenantSession) {
   return {
-    workspaceId: session.workspaceId,
-    OR: [{ visibility: "workspace" }, { createdByUserId: session.userId }],
+    OR: [
+      { createdByUserId: session.userId },
+      { visibility: "workspace", audienceTags: { none: {} } },
+      {
+        visibility: "workspace",
+        audienceTags: {
+          some: {
+            tag: {
+              members: {
+                some: {
+                  membership: { userId: session.userId, workspaceId: session.workspaceId },
+                },
+              },
+            },
+          },
+        },
+      },
+    ],
   };
+}
+
+/**
+ * Workspace filter that also respects per-decision visibility (private and
+ * audience tags - see `decisionAccessWhere`).
+ *
+ * The result has a top-level `OR`. Never spread it next to another `OR` key -
+ * the later one wins and the visibility rule silently disappears. Combine with
+ * other OR/AND filters via `{ AND: [decisionVisibilityWhere(s), other] }`. Use for any decision read that a
+ * member could trigger (list, search, ask, share-within-app), and - with an
+ * `id` added - for every by-id lookup before reading or writing anything that
+ * belongs to a decision:
+ *
+ *   prisma.decision.findFirst({ where: { id, ...decisionVisibilityWhere(s) } })
+ *
+ * A null result becomes a 404, so a hidden decision's existence isn't confirmed.
+ */
+export function decisionVisibilityWhere(session: TenantSession) {
+  return { workspaceId: session.workspaceId, ...decisionAccessWhere(session) };
 }
 
 /**
@@ -49,31 +86,16 @@ export function sameWorkspace<T extends { workspaceId: string }>(
 }
 
 /**
- * Guard a fetched decision is one the caller may see: in their workspace, and
- * either workspace-visible or their own private decision. The per-row twin of
- * `decisionVisibilityWhere` - use it wherever a route looks a decision up by id
- * before reading or writing anything that belongs to it. Returns null (→ 404)
- * otherwise, so a private decision's existence isn't confirmed either.
- */
-export function visibleDecision<T extends { workspaceId: string; visibility: string; createdByUserId: string }>(
-  row: T | null | undefined,
-  session: TenantSession,
-): T | null {
-  if (!row || row.workspaceId !== session.workspaceId) return null;
-  return row.visibility === "workspace" || row.createdByUserId === session.userId ? row : null;
-}
-
-/**
  * Action items the caller may see: unattached ones, and ones attached to a
  * decision they can see. Without this, the board would show the titles of
- * other members' private decisions next to their follow-ups.
+ * private / audience-restricted decisions next to their follow-ups.
  */
 export function actionItemVisibilityWhere(session: TenantSession) {
   return {
     workspaceId: session.workspaceId,
     OR: [
       { decisionId: null },
-      { decision: { OR: [{ visibility: "workspace" }, { createdByUserId: session.userId }] } },
+      { decision: decisionAccessWhere(session) },
     ],
   };
 }

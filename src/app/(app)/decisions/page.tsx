@@ -139,9 +139,6 @@ export default async function DecisionsPage({ searchParams }: PageProps) {
     now,
   });
   Object.assign(where, queryWhere);
-  // Private decisions are visible only to their author - the query language
-  // never emits a top-level OR, so this can't clobber a filter.
-  where.OR = decisionVisibilityWhere(session).OR;
 
   // Archived decisions are out of the default view - that's what archiving
   // promises. Any explicit status filter (dropdown or `status:` in the query)
@@ -159,7 +156,8 @@ export default async function DecisionsPage({ searchParams }: PageProps) {
 
   const [decisionsRaw, aggRows, slackLink] = await Promise.all([
     prisma.decision.findMany({
-      where,
+      // ANDed rather than merged, so no filter key can replace the visibility rule.
+      where: { AND: [decisionVisibilityWhere(session), where] },
       orderBy: { updatedAt: "desc" },
       include: {
         owner: { select: { id: true, name: true } },

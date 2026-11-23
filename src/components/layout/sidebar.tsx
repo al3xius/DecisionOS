@@ -25,16 +25,23 @@ import { AccountBlock } from "@/components/layout/account-block";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 
 // Badge counts are injected at render time, not part of the static array.
-const NAV_ITEMS = [
+// `adminOnly` items are hidden from members and viewers.
+const NAV_ITEMS: {
+  href: string;
+  label: string;
+  icon: typeof FileText;
+  badgeKey?: "reviewsDue";
+  adminOnly?: boolean;
+}[] = [
   { href: "/decisions",  label: "Decisions", icon: FileText },
   { href: "/my-work",    label: "My work",   icon: ListTodo },
   { href: "/board",      label: "Board",     icon: KanbanSquare },
-  { href: "/ask",        label: "Ask",       icon: Sparkles },
+  { href: "/ask",        label: "Ask",       icon: Sparkles, adminOnly: true },
   { href: "/graph",      label: "Graph",     icon: Network },
-  { href: "/reviews",    label: "Reviews",   icon: ClipboardCheck, badgeKey: "reviewsDue" as const },
+  { href: "/reviews",    label: "Reviews",   icon: ClipboardCheck, badgeKey: "reviewsDue" },
   { href: "/risks",      label: "Risks",     icon: ShieldAlert },
-  { href: "/analytics",  label: "Analytics", icon: BarChart3 },
-  { href: "/activity",   label: "Activity",  icon: History },
+  { href: "/analytics",  label: "Analytics", icon: BarChart3, adminOnly: true },
+  { href: "/activity",   label: "Activity",  icon: History, adminOnly: true },
   { href: "/tags",       label: "Tags",      icon: Tags },
   { href: "/team",       label: "Team",      icon: Users },
   { href: "/settings",   label: "Settings",  icon: Settings },
@@ -45,13 +52,15 @@ interface SidebarProps {
   userName: string;
   userEmail: string;
   reviewsDue?: number;
+  /** Workspace admin (or platform staff acting in the workspace) - shows admin-only items. */
+  isAdmin?: boolean;
   /** Platform super-admins get a link into the provider console. */
   isPlatformAdmin?: boolean;
   /** Called when a nav link is activated - lets the shell close the mobile drawer. */
   onNavigate?: () => void;
 }
 
-export function Sidebar({ userName, userEmail, reviewsDue = 0, isPlatformAdmin, onNavigate }: SidebarProps) {
+export function Sidebar({ userName, userEmail, reviewsDue = 0, isAdmin, isPlatformAdmin, onNavigate }: SidebarProps) {
   const pathname = usePathname();
 
   function openCommandPalette() {
@@ -98,7 +107,7 @@ export function Sidebar({ userName, userEmail, reviewsDue = 0, isPlatformAdmin, 
       </div>
 
       <nav className="flex-1 py-2">
-        {NAV_ITEMS.map((item) => {
+        {NAV_ITEMS.filter((item) => isAdmin || !item.adminOnly).map((item) => {
           const Icon = item.icon;
           const isActive =
             pathname === item.href || pathname.startsWith(`${item.href}/`);

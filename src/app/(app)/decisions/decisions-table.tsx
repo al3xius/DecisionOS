@@ -74,9 +74,9 @@ export function DecisionsTable({ decisions, isViewer }: DecisionsTableProps) {
             <Table.Cell>Title</Table.Cell>
             <Table.Cell className="hidden md:table-cell">Category</Table.Cell>
             <Table.Cell>Status</Table.Cell>
-            <Table.Cell className="hidden lg:table-cell">Owner</Table.Cell>
+            <Table.Cell className="hidden lg:table-cell whitespace-nowrap">Owner</Table.Cell>
             <Table.Cell className="hidden lg:table-cell">Impact</Table.Cell>
-            <Table.Cell className="hidden xl:table-cell">Review Date</Table.Cell>
+            <Table.Cell className="hidden xl:table-cell whitespace-nowrap">Review date</Table.Cell>
             <Table.Cell className="hidden xl:table-cell">Outcome</Table.Cell>
             <Table.Cell className="hidden lg:table-cell">Updated</Table.Cell>
           </Table.Row>
@@ -115,7 +115,7 @@ export function DecisionsTable({ decisions, isViewer }: DecisionsTableProps) {
                   {getLabelForValue(STATUSES, d.status)}
                 </Badge>
               </Table.Cell>
-              <Table.Cell className="hidden lg:table-cell">
+              <Table.Cell className="hidden lg:table-cell whitespace-nowrap">
                 <Text>{d.owner?.name ?? "-"}</Text>
               </Table.Cell>
               <Table.Cell className="hidden lg:table-cell">
@@ -123,7 +123,7 @@ export function DecisionsTable({ decisions, isViewer }: DecisionsTableProps) {
                   {`${getLabelForValue(IMPACT_LEVELS, d.impactLevel)} Impact`}
                 </Badge>
               </Table.Cell>
-              <Table.Cell className="hidden xl:table-cell">
+              <Table.Cell className="hidden xl:table-cell whitespace-nowrap">
                 <Text>{d.reviewDate ? formatDate(d.reviewDate) : "-"}</Text>
               </Table.Cell>
               <Table.Cell className="hidden xl:table-cell">
@@ -131,7 +131,7 @@ export function DecisionsTable({ decisions, isViewer }: DecisionsTableProps) {
                   {getLabelForValue(OUTCOME_STATUSES, d.outcomeStatus ?? "unknown")}
                 </Badge>
               </Table.Cell>
-              <Table.Cell className="hidden lg:table-cell">
+              <Table.Cell className="hidden lg:table-cell whitespace-nowrap">
                 <Text>{formatDate(d.updatedAt)}</Text>
               </Table.Cell>
             </Table.Row>

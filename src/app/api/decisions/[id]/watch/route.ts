@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withApi } from "@/lib/api-handler";
-import { visibleDecision, type TenantSession } from "@/lib/tenant";
+import { decisionVisibilityWhere, type TenantSession } from "@/lib/tenant";
 
 /**
  * Watch / unwatch a decision. Watching is a per-user subscription to change
@@ -12,10 +12,7 @@ import { visibleDecision, type TenantSession } from "@/lib/tenant";
 type Params = { id: string };
 
 async function findDecision(id: string, session: TenantSession) {
-  return visibleDecision(
-    await prisma.decision.findUnique({ where: { id }, select: { id: true, workspaceId: true, visibility: true, createdByUserId: true } }),
-    session,
-  );
+  return await prisma.decision.findFirst({ where: { id, ...decisionVisibilityWhere(session) }, select: { id: true, workspaceId: true, visibility: true, createdByUserId: true } });
 }
 
 export const POST = withApi<undefined, Params>({ require: "auth" }, async ({ session, params }) => {

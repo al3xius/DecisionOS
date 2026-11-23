@@ -6,6 +6,7 @@ import { Text } from "@/components/ui/text";
 import { cn, formatDate } from "@/lib/utils";
 import { InviteMemberForm } from "./invite-member-form";
 import { MemberControls } from "./member-controls";
+import { MemberTags } from "./member-tags";
 import { Shield, User, Users } from "lucide-react";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
@@ -16,16 +17,23 @@ export default async function TeamPage() {
   const session = await getSession();
   if (!session) redirect("/login");
 
-  const [workspace, memberships] = await Promise.all([
+  const [workspace, memberships, tags] = await Promise.all([
     prisma.workspace.findUnique({ where: { id: session.workspaceId } }),
     prisma.workspaceMembership.findMany({
       where: { workspaceId: session.workspaceId },
       include: {
-        user: {
-          select: { id: true, name: true, email: true, createdAt: true },
+        user: { select: { id: true, name: true, email: true, createdAt: true } },
+        tags: {
+          select: { tag: { select: { id: true, name: true, color: true } } },
+          orderBy: { tag: { name: "asc" } },
         },
       },
       orderBy: { joinedAt: "asc" },
+    }),
+    prisma.tag.findMany({
+      where: { workspaceId: session.workspaceId },
+      select: { id: true, name: true, color: true },
+      orderBy: { name: "asc" },
     }),
   ]);
 
@@ -78,9 +86,11 @@ export default async function TeamPage() {
       )}
 
       <div className="rounded-xs transition-all duration-200 animate-enter animate-enter-delay-2 overflow-hidden">
-        <div className={cn("flex flex-row gap-2 space-y-1.5 p-6", "pb-3")}>
-          <Users className="h-4 w-4 text-slate-700" />
-          <Text as="h3">Members</Text>
+        <div className={cn("flex flex-col space-y-1.5 p-6", "pb-3")}>
+          <Text as="h3" className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-slate-700" />
+            Members
+          </Text>
         </div>
         <div className={cn("p-6 pt-0", "p-0")}>
           <div className="divide-y divide-slate-100">
@@ -105,15 +115,36 @@ export default async function TeamPage() {
                     </div>
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <Text>{m.user.name}</Text>
-                        {isCurrentUser && <Text>You</Text>}
+                        <Text weight="medium" color="primary">
+                          {m.user.name}
+                        </Text>
+                        {isCurrentUser && (
+                          <Text
+                            as="span"
+                            size="2xs"
+                            weight="medium"
+                            color="muted"
+                            className="rounded-full bg-slate-100 px-2 py-0.5"
+                          >
+                            You
+                          </Text>
+                        )}
                       </div>
-                      <Text>{m.user.email}</Text>
+                      <Text as="p" size="xs" color="muted">{m.user.email}</Text>
+                      <div className="mt-1.5">
+                        <MemberTags
+                          membershipId={m.id}
+                          name={m.user.name}
+                          applied={m.tags.map((t) => t.tag)}
+                          available={tags}
+                          readOnly={!isAdmin}
+                        />
+                      </div>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between gap-3 sm:justify-end">
-                    <Text>Joined {formatDate(m.joinedAt)}</Text>
+                    <Text size="xs" color="muted" className="whitespace-nowrap">Joined {formatDate(m.joinedAt)}</Text>
                     {isAdmin && !isCurrentUser ? (
                       <MemberControls
                         membershipId={m.id}

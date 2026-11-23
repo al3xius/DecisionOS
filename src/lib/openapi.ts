@@ -54,6 +54,12 @@ const DECISION_SCHEMA: Json = {
       enum: ["workspace", "private"],
       description: "Private decisions are visible only to their author. Only the author or an admin can change this.",
     },
+    audienceTagIds: {
+      type: "array",
+      items: { type: "string" },
+      description:
+        "Write-only. Workspace tag ids the decision is visible to. Empty = whole workspace; otherwise only the author and members holding at least one of the tags can see it. Only the author or an admin can change this.",
+    },
     problemStatement: { type: "string", nullable: true },
     chosenOption: { type: "string", nullable: true },
     rationale: { type: "string", nullable: true },

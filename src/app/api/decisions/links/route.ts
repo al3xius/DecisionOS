@@ -1,17 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withApi } from "@/lib/api-handler";
-import { visibleDecision } from "@/lib/tenant";
+import { decisionVisibilityWhere } from "@/lib/tenant";
 import { LinkWriteSchema, LinkDeleteSchema, type LinkWriteInput, type LinkDeleteInput } from "@/lib/schemas";
 
 export const POST = withApi<LinkWriteInput>(
   { require: "writer", schema: LinkWriteSchema },
   async ({ session, body }) => {
     const { decisionId, label, url, linkType } = body;
-    const decision = visibleDecision(
-      await prisma.decision.findUnique({ where: { id: decisionId } }),
-      session,
-    );
+    const decision = await prisma.decision.findFirst({ where: { id: decisionId, ...decisionVisibilityWhere(session) } });
     if (!decision) return NextResponse.json({ error: "Decision not found." }, { status: 404 });
 
     await prisma.$transaction([

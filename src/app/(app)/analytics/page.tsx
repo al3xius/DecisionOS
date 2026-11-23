@@ -1,5 +1,6 @@
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { decisionVisibilityWhere } from "@/lib/tenant";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -91,7 +92,7 @@ export default async function AnalyticsPage() {
       orderBy: { _count: { id: "desc" } },
     }),
     prisma.decisionEvent.findMany({
-      where: { decision: { workspaceId: wid }, createdAt: { gte: sevenDaysAgo } },
+      where: { decision: decisionVisibilityWhere(session), createdAt: { gte: sevenDaysAgo } },
       include: { user: { select: { name: true } }, decision: { select: { id: true, title: true } } },
       orderBy: { createdAt: "desc" },
       take: 20,

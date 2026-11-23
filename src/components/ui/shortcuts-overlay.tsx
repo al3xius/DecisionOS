@@ -5,14 +5,14 @@ import { useRouter } from "next/navigation";
 import { Keyboard, X } from "lucide-react";
 import { Text } from "@/components/ui/text";
 
-const SHORTCUTS: { keys: string[]; label: string }[] = [
+const SHORTCUTS: { keys: string[]; label: string; adminOnly?: boolean }[] = [
   { keys: ["Ctrl/Cmd", "K"], label: "Open command palette" },
   { keys: ["?"], label: "Show this cheatsheet" },
   { keys: ["C"], label: "Create a new decision" },
   { keys: ["G", "D"], label: "Go to Decisions" },
   { keys: ["G", "R"], label: "Go to Reviews" },
   { keys: ["G", "K"], label: "Go to Risk register" },
-  { keys: ["G", "A"], label: "Go to Analytics" },
+  { keys: ["G", "A"], label: "Go to Analytics", adminOnly: true },
   { keys: ["G", "T"], label: "Go to Team" },
   { keys: ["G", "S"], label: "Go to Settings" },
   { keys: ["Esc"], label: "Close overlays and modals" },
@@ -25,7 +25,7 @@ function isTypingTarget(target: EventTarget | null): boolean {
   return target.isContentEditable;
 }
 
-export function ShortcutsOverlay() {
+export function ShortcutsOverlay({ isAdmin = false }: { isAdmin?: boolean }) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
 
@@ -62,7 +62,7 @@ export function ShortcutsOverlay() {
       if (lastG && now - lastG < 1200) {
         lastG = 0;
         const key = e.key.toLowerCase();
-        if (key === "a") {
+        if (key === "a" && isAdmin) {
           e.preventDefault();
           router.push("/analytics");
           return;
@@ -96,7 +96,7 @@ export function ShortcutsOverlay() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, router]);
+  }, [open, router, isAdmin]);
 
   if (!open) return null;
 
@@ -127,7 +127,7 @@ export function ShortcutsOverlay() {
           </button>
         </div>
         <ul className="divide-y divide-slate-100">
-          {SHORTCUTS.map((s) => (
+          {SHORTCUTS.filter((s) => isAdmin || !s.adminOnly).map((s) => (
             <li key={s.label} className="flex items-center justify-between px-5 py-2.5">
               <Text size="sm" color="secondary">{s.label}</Text>
               <div className="flex items-center gap-1">
